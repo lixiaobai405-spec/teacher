@@ -17,6 +17,7 @@ teacher/
 ├─ frontend/markdown-renderer.js          # 模型自由文本的安全渲染边界
 ├─ frontend/vendor/markdown-it.min.js     # 固定版本的离线解析器
 ├─ server/                                 # Express API 与教练服务
+├─ scripts/start.ps1                       # PowerShell 一键启动脚本
 ├─ prompts/system.md                      # v2 全流程提示词
 ├─ knowledge/ability-willingness-grid.md  # 能力×意愿知识库（单一事实源）
 ├─ tests/                                 # 服务端与前端自动化测试
@@ -29,15 +30,30 @@ teacher/
 
 需要 Node.js 20 或更高版本。
 
-在本目录执行：
+首次使用时，在本目录执行：
 
 ```powershell
 Copy-Item .env.example .env
+# 在 .env 中仅填写本机的 API 密钥
 npm.cmd install
-npm.cmd run dev
+./scripts/start.ps1
 ```
 
+`./scripts/start.ps1` 会检查 Node.js、`.env` 和 `node_modules`，若服务已在运行则直接复用，否则在后台启动服务并打开浏览器。它不会安装依赖、创建 `.env` 或显示其中的内容。
+
 只在本机的 `.env` 中填写 `DEEPSEEK_API_KEY`；该文件已被 Git 忽略，不要提交或在文档中粘贴真实密钥。服务启动后访问 `http://127.0.0.1:4173/`。
+
+不希望自动打开浏览器时：
+
+```powershell
+./scripts/start.ps1 -NoBrowser
+```
+
+只检查启动前置条件、但不启动服务时：
+
+```powershell
+./scripts/start.ps1 -CheckOnly
+```
 
 ## 教练 API 流程
 
