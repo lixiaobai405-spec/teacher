@@ -1,5 +1,6 @@
 const {
   validateIntake,
+  validateModelClassification,
   validateClassification,
   validatePlan,
   validateFeedback,
@@ -160,9 +161,20 @@ function createCoachService({ promptLoader, client } = {}) {
       return INVALID_REQUEST;
     }
 
-    return completeStep(2, {
+    const modelResult = await completeStep(2, {
       normalized_profile: request.normalizedProfile,
-    }, validateClassification, 0.25, 900);
+    }, validateModelClassification, 0.25, 900);
+    const { confidence, ...classification } = modelResult;
+    const applicationResult = {
+      ...classification,
+      classification_confidence: confidence,
+    };
+
+    if (!validateClassification(applicationResult)) {
+      throw controlledError('INVALID_MODEL_RESPONSE');
+    }
+
+    return applicationResult;
   }
 
   async function plan(request) {
@@ -190,6 +202,9 @@ function createCoachService({ promptLoader, client } = {}) {
     const result = await completeStep(3, {
       classification_status: request.classification.status,
       type_id: request.classification.type_id,
+      strategy: request.classification.strategy,
+      coach_mode: request.classification.coach_mode,
+      reason: request.classification.reason,
       high_risk_personnel_action: false,
       pain: request.pain,
       regenerate: request.regenerate === true,
@@ -220,8 +235,10 @@ function createCoachService({ promptLoader, client } = {}) {
     }
 
     const result = await completeStep(4, {
-      matched_type: request.classification.quadrant,
-      sub_type: request.classification.type_id,
+      type_id: request.classification.type_id,
+      strategy: request.classification.strategy,
+      coach_mode: request.classification.coach_mode,
+      reason: request.classification.reason,
       plan_summary: request.planSummary,
       feedback_text: request.feedbackText,
     }, validateFeedback, 0.55, 1000);
