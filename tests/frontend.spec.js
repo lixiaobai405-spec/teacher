@@ -127,7 +127,7 @@ test('顶部返回首页后迟到请求不会恢复旧会话', async ({ page }) 
   let releaseDelayedIntake;
   const delayedIntake = new Promise((resolve) => { releaseDelayedIntake = resolve; });
   const fixtures = defaultFixtures();
-  const intakeResponse = fixtures.intake[0];
+  const delayedResponseBody = fixtures.intake[0];
   fixtures.intake = [() => delayedIntake];
   const requests = await mockCoachApi(page, fixtures);
   await page.goto('/');
@@ -136,8 +136,14 @@ test('顶部返回首页后迟到请求不会恢复旧会话', async ({ page }) 
   await expect.poll(() => requests.filter((item) => item.method === 'intake').length).toBe(1);
 
   await page.locator('#top-return-home').click();
-  releaseDelayedIntake(intakeResponse);
-  await page.waitForTimeout(150);
+  const intakeResponseCompleted = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/coach/intake'
+  ));
+  releaseDelayedIntake(delayedResponseBody);
+  const intakeResponse = await intakeResponseCompleted;
+  await intakeResponse.finished();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
 
   await expect(page.getByRole('heading', { name: '因材施教，给每个人对的辅导方式' })).toBeVisible();
   await expect(page.getByLabel('绩效目标 / 上层期望')).toHaveValue('');
