@@ -14,6 +14,7 @@ test('GROW 要求两条话术分别按顺序包含非空 Goal/Reality 与 Option
 
   assert.equal(hasCompleteGrowScripts(['Goal（目标）：本周达成目标。', 'Options（可选方案）：先试一次。Will（行动承诺）：周五复盘。']), false);
   assert.equal(hasCompleteGrowScripts(['Reality（现状）：仍需提醒。Goal（目标）：主动同步。', 'Options（可选方案）：每日同步。Will（行动承诺）：周五执行。']), false);
+  assert.equal(hasCompleteGrowScripts(['Reality（现状）：仍需提醒。Goal（目标）：主动同步。Reality（现状）：需要主管提醒。', 'Options（可选方案）：每日同步。Will（行动承诺）：周五执行。']), false);
   assert.equal(hasCompleteGrowScripts(['Goal（目标）：  \nReality（现状）：仍需提醒。', 'Options（可选方案）：每日同步。Will（行动承诺）：周五执行。']), false);
   assert.equal(hasCompleteGrowScripts(['Goal（目标）：主动同步。Reality（现状）：仍需提醒。', 'Will（行动承诺）：周五执行。Options（可选方案）：每日同步。']), false);
 });
@@ -21,6 +22,7 @@ test('GROW 要求两条话术分别按顺序包含非空 Goal/Reality 与 Option
 test('SBI 要求标签式 Situation/Behavior/Impact 按序且内容非空', () => {
   assert.equal(hasCompleteSbi('**Situation（情境）**：周一项目例会；**Behavior（行为）**：你在会前主动同步风险；**Impact（影响）**：团队提前协调了资源。'), true);
   assert.equal(hasCompleteSbi('Situation（情境）：周一例会。Impact（影响）：进度受影响。Behavior（行为）：未提前同步。'), false);
+  assert.equal(hasCompleteSbi('Impact（影响）：团队临时调整。Situation（情境）：周一例会。Behavior（行为）：未提前同步。Impact（影响）：团队无法预排资源。'), false);
   assert.equal(hasCompleteSbi('Situation（情境）：周一例会。Behavior（行为）：。Impact（影响）：团队无法预排资源。'), false);
   assert.equal(hasCompleteSbi('正文讨论 Situation（情境）、Behavior（行为）和 Impact（影响）的定义。'), false);
   assert.equal(hasCompleteSbi('Situation（情境）：周一例会。Behavior（行为）：未提前同步。'), false);

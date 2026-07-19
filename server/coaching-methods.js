@@ -30,31 +30,26 @@ function parseLabeledStages(value) {
   }));
 }
 
-function containsOrderedStages(value, requiredNames) {
-  const stages = parseLabeledStages(value);
-  let previousIndex = -1;
+function containsExactStages(value, requiredNames) {
+  const requiredLabels = requiredNames.map((name) => STAGE_LABELS[name]);
+  const stages = parseLabeledStages(value)
+    .filter((stage) => requiredLabels.includes(stage.label));
 
-  for (const name of requiredNames) {
-    const label = STAGE_LABELS[name];
-    const index = stages.findIndex((stage, stageIndex) => (
-      stageIndex > previousIndex && stage.label === label && hasSubstantiveContent(stage.content)
+  return stages.length === requiredLabels.length
+    && stages.every((stage, index) => (
+      stage.label === requiredLabels[index] && hasSubstantiveContent(stage.content)
     ));
-    if (index === -1) return false;
-    previousIndex = index;
-  }
-
-  return true;
 }
 
 function hasCompleteGrowScripts(scripts) {
   return Array.isArray(scripts)
     && scripts.length >= 2
-    && containsOrderedStages(scripts[0], ['Goal', 'Reality'])
-    && containsOrderedStages(scripts[1], ['Options', 'Will']);
+    && containsExactStages(scripts[0], ['Goal', 'Reality'])
+    && containsExactStages(scripts[1], ['Options', 'Will']);
 }
 
 function hasCompleteSbi(value) {
-  return containsOrderedStages(value, ['Situation', 'Behavior', 'Impact']);
+  return containsExactStages(value, ['Situation', 'Behavior', 'Impact']);
 }
 
 module.exports = {

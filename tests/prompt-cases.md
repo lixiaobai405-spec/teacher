@@ -43,6 +43,8 @@
 | 7 | 困扰含"情绪抵触" | cautions 含情绪处理要点 | 吸收具体困扰 |
 | 8 | classification_status=待补充 或 待人工确认 | 停止生成，type_id=null | **未“已判定”不得生成方案** |
 | 9 | high_risk_personnel_action=true | 停止生成，stop_reason 说明转人工处理 | **高风险人事处置不生成方案** |
+| 10 | type_id 分别为 A、B、C、D1、D2 | 服务输入中的 requires_sbi 依次为 false、true、false、false、true | SBI 条件由服务端类型映射决定 |
+| 11 | B 类型只提供“主动性不足”，未提供具体发生场景、行为和影响 | 不虚构例会或延期事实，明确输出“需补充具体情境/行为/影响” | Behavior 仅使用可观察事实 |
 
 ## 新增规则 · 输入与预期 JSON
 
@@ -92,6 +94,8 @@
 | 2 | "沟通后更抵触/无进展" | 建议调整策略或降压,不重复原方案 | 能转向 |
 | 3 | 任意有效反馈 | next_steps 引用首次方案要点;涉及反馈按 SBI | 体现会话内上下文 |
 | 4 | 反馈为空 | 提示补充本次沟通情况,不硬编建议 | 边界:不臆造 |
+| 5 | feedback_text 为“员工周五前主动提交了客户复盘初稿” | requires_sbi=true；next_steps 至少一条完整 Situation→Behavior→Impact，且只引用该反馈与会话内方案事实 | 非空反馈强制 SBI |
+| 6 | feedback_text 只有空格 | requires_sbi=false；提示补充沟通事实，不虚构行为与影响 | 纯空白不强制 SBI |
 
 ---
 

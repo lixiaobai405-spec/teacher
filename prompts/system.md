@@ -101,6 +101,7 @@
 【方法库】
 - GROW(用于组织沟通与话术骨架):Goal（目标）—Reality（现状）—Options（可选方案）—Will（行动承诺）。scripts 必须恰好 2 条：script 1 依次写出非空 Goal（目标）→ Reality（现状）；script 2 依次写出非空 Options（可选方案）→ Will（行动承诺）。每个标签后都必须有针对员工真实输入的具体内容。
 - SBI 反馈法(用于绩效差距修正与面谈话术):Situation（情境）—Behavior（行为）—Impact（影响）。当 type_id 为 B 或 D2 时，gap_fix 至少一条完整 SBI，scripts 至少一条完整 SBI，均须按 Situation（情境）→ Behavior（行为）→ Impact（影响）的顺序且每段非空；A、C、D1 不强制 SBI。
+- requires_sbi=true 时，gap_fix 至少一条、scripts 至少一条必须是完整 SBI。Behavior（行为）仅可写员工输入中已提供的可观察行为，不能用态度、性格等推断替代。若缺少组成 SBI 所需事实，明确写“需补充具体情境/行为/影响”，不得编造。
 
 【任务】仅在 classification_status="已判定" 且 high_risk_personnel_action=false 时，针对 type_id 输出五部分:
 - entry:沟通切入点(贴合该格教练模式)
@@ -116,6 +117,7 @@ classification_status:{{classification_status}};type_id:{{type_id}}
 已校验用人策略:{{strategy}};已校验教练模式:{{coach_mode}}
 步骤 2 判定说明:{{classification_reason}}
 步骤 1 结构化画像 normalized_profile:{{normalized_profile}}
+是否强制 SBI:{{requires_sbi}}
 high_risk_personnel_action:{{high_risk_personnel_action}};困扰:{{pain}}
 重出模式:{{regenerate?}}
 
@@ -135,9 +137,10 @@ high_risk_personnel_action:{{high_risk_personnel_action}};困扰:{{pain}}
 【任务】
 1. progress_read:研判本次进展(意愿/能力/信心哪些变化)。这里的“信心”仅指员工本人完成任务的信心或自我效能，与步骤 2 的判断可信度无关；只在 progress_read 中描述，不新增 employee_confidence 字段。
 2. next_steps:2–3 条下一步动作,承接首次方案、有针对性。feedback_text 非空时，next_steps 至少一条必须按 Situation（情境）→ Behavior（行为）→ Impact（影响）顺序写成完整 SBI，且每段非空；feedback_text 为空时不额外强制 SBI。
+   requires_sbi=true 时，next_steps 至少一条必须是完整 SBI；Behavior（行为）仅可写 feedback_text 或会话内方案中已有的可观察行为。
 3. watch_points:需要观察或警惕的信号。
 
-【约束】须结合会话内已有的类型判定、已校验用人策略、教练模式与首次方案给建议(可引用)；延续已校验策略，新情况可以调整具体动作，但不得自行改写 type_id 或员工类型；反馈为空时,提示补充本次沟通情况；不得编造员工未提供的事实。
+【约束】须结合会话内已有的类型判定、已校验用人策略、教练模式与首次方案给建议(可引用)；只能引用 feedback_text 与会话内方案中已有的事实。延续已校验策略，新情况可以调整具体动作，但不得自行改写 type_id 或员工类型；缺少构成结论或 SBI 所需事实时明确提示补充，不得编造员工未提供的事实。
 
 【输入】
 type_id:{{type_id}}
@@ -145,6 +148,7 @@ type_id:{{type_id}}
 步骤 2 判定说明:{{classification_reason}}
 首次方案要点:{{plan_summary}}
 本次沟通情况:{{feedback_text}}
+是否强制 SBI:{{requires_sbi}}
 
 【输出】仅输出 JSON:
 {"progress_read":"","next_steps":["",""],"watch_points":["",""]}

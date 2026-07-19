@@ -182,6 +182,7 @@ function createCoachService({ promptLoader, client } = {}) {
       return CLASSIFICATION_NOT_READY;
     }
 
+    const requiresSbi = ['B', 'D2'].includes(request.classification.type_id);
     const validate = (payload) => validatePlan(payload, {
       typeId: request.classification.type_id,
     });
@@ -192,6 +193,7 @@ function createCoachService({ promptLoader, client } = {}) {
       coach_mode: request.classification.coach_mode,
       classification_reason: request.classification.reason,
       normalized_profile: request.normalizedProfile,
+      requires_sbi: requiresSbi,
       high_risk_personnel_action: false,
       pain: request.pain,
       regenerate: request.regenerate === true,
@@ -221,8 +223,9 @@ function createCoachService({ promptLoader, client } = {}) {
       return CLASSIFICATION_NOT_READY;
     }
 
+    const requireSbi = request.feedbackText.trim().length > 0;
     const validate = (payload) => validateFeedback(payload, {
-      requireSbi: request.feedbackText.trim().length > 0,
+      requireSbi,
     });
     const result = await completeStep(4, {
       type_id: request.classification.type_id,
@@ -231,6 +234,7 @@ function createCoachService({ promptLoader, client } = {}) {
       classification_reason: request.classification.reason,
       plan_summary: request.planSummary,
       feedback_text: request.feedbackText,
+      requires_sbi: requireSbi,
     }, validate, 0.55, 1000);
     const highRiskIntent = findHighRiskIntent(result);
 
