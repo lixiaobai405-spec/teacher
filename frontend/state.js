@@ -1,6 +1,7 @@
 const SESSION_KEYS = new Set([
   'screen', 'step', 'busy', 'intake', 'answers', 'intakeResult',
   'classification', 'plan', 'feedback', 'feedbackText', 'blocked', 'error',
+  'submissionKeys',
 ]);
 
 export function createInitialState() {
@@ -18,6 +19,7 @@ export function createInitialState() {
     feedbackText: '',
     blocked: null,
     error: null,
+    submissionKeys: { intake: null, classification: null, plan: null },
   };
 }
 
@@ -87,6 +89,59 @@ export function beginRequestEpoch() {
 
 export function invalidateRequestEpoch() {
   return beginRequestEpoch();
+}
+
+function normalizedForKey(value) {
+  if (Array.isArray(value)) return value.map(normalizedForKey);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, normalizedForKey(value[key])]),
+    );
+  }
+  return value;
+}
+
+function submissionKey(payload) {
+  return JSON.stringify(normalizedForKey(payload));
+}
+
+export function matchesSubmission(stage, payload) {
+  return session.submissionKeys[stage] === submissionKey(payload);
+}
+
+export function markSubmission(stage, payload) {
+  updateSession({
+    submissionKeys: { ...session.submissionKeys, [stage]: submissionKey(payload) },
+  });
+}
+
+export function clearDownstream(stage) {
+  if (stage === 'intake') {
+    updateSession({
+      intakeResult: null,
+      classification: null,
+      plan: null,
+      feedback: null,
+      feedbackText: '',
+      blocked: null,
+      submissionKeys: { ...session.submissionKeys, classification: null, plan: null },
+    });
+    return;
+  }
+  if (stage === 'classification') {
+    updateSession({
+      plan: null,
+      feedback: null,
+      feedbackText: '',
+      submissionKeys: { ...session.submissionKeys, plan: null },
+    });
+    return;
+  }
+  if (stage === 'plan') {
+    updateSession({ feedback: null, feedbackText: '' });
+    return;
+  }
+  throw new TypeError(`Unsupported downstream stage: ${stage}`);
 }
 
 export function resetSession() {

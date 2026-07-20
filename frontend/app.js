@@ -1,5 +1,8 @@
 import {
+  clearDownstream,
   isCurrentEpoch,
+  markSubmission,
+  matchesSubmission,
   resetSession,
   session,
   setAnswers,
@@ -61,10 +64,6 @@ function goPrevious() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function answersPayload() {
-  return Object.fromEntries(session.answers.map(({ question, answer }) => [question, answer]));
-}
-
 function planSummary() {
   if (!session.plan) return '';
   return [
@@ -93,21 +92,37 @@ function consume(result) {
   return result.data;
 }
 
-async function reviewIntake(values, answers = []) {
+async function reviewIntake(values, answers = session.answers) {
+  const payload = {
+    intake: values,
+    answers: Object.fromEntries(
+      answers.map(({ question, answer }) => [question, answer]),
+    ),
+  };
   setIntake(values);
   setAnswers(answers);
+  if (matchesSubmission('intake', payload) && session.intakeResult) {
+    setError(null);
+    setScreen(
+      session.intakeResult.sufficient ? 'classification' : 'intake',
+      session.intakeResult.sufficient ? 2 : 1,
+    );
+    render();
+    return;
+  }
+  clearDownstream('intake');
   setError(null);
   setBusy(true);
   render();
-  const result = await intake({ intake: values, answers: answersPayload() });
+  const result = await intake(payload);
   const data = consume(result);
   if (!data) return;
   if (data.high_risk_personnel_action || data.status === '高风险停止') {
     setBlocked({ code: 'HR_REVIEW_REQUIRED' });
     setScreen('blocked');
   } else {
+    markSubmission('intake', payload);
     setIntakeResult(data);
-    setClassification(null);
     setScreen(data.sufficient ? 'classification' : 'intake', data.sufficient ? 2 : 1);
   }
   render();
@@ -124,12 +139,17 @@ async function generateClassification() {
     render();
     return;
   }
+  const payload = { normalizedProfile };
+  if (!matchesSubmission('classification', payload)) {
+    clearDownstream('classification');
+  }
   setError(null);
   setBusy(true);
   render();
-  const result = await classify({ normalizedProfile });
+  const result = await classify(payload);
   const data = consume(result);
   if (!data) return;
+  markSubmission('classification', payload);
   setClassification(data);
   setScreen('classification', 2);
   render();
@@ -137,19 +157,30 @@ async function generateClassification() {
 
 async function requestPlan(regenerate) {
   if (!session.classification || session.classification.status !== '已判定') return;
+  const planInput = {
+    classification: session.classification,
+    normalizedProfile: session.intakeResult && session.intakeResult.normalized_profile,
+    pain: session.intake.pain || '',
+  };
+  if (!regenerate && session.plan && matchesSubmission('plan', planInput)) {
+    setError(null);
+    setScreen('plan', 3);
+    render();
+    return;
+  }
   setError(null);
   setBusy(true);
   render();
   const result = await generatePlan({
-    classification: session.classification,
-    normalizedProfile: session.intakeResult && session.intakeResult.normalized_profile,
-    pain: session.intake.pain || '',
+    ...planInput,
     regenerate,
     previousPlan: regenerate ? session.plan : null,
   });
   const data = consume(result);
   if (!data) return;
+  clearDownstream('plan');
   setPlan(data);
+  markSubmission('plan', planInput);
   setScreen('plan', 3);
   render();
 }

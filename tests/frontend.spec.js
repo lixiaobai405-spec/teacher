@@ -156,6 +156,47 @@ test('第 4 步返回方案后会保留尚未提交的反馈草稿', async ({ pa
   await expect(page.getByLabel('本次沟通后的情况')).toHaveValue('已提交的反馈草稿');
 });
 
+test('返回后未修改员工信息会复用已有结果，修改后会重新审查并清除旧下游结果', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.intake = [...fixtures.intake, ...fixtures.intake];
+  fixtures.classify = [...fixtures.classify, ...fixtures.classify];
+  fixtures.plan = [coachingPlan(), coachingPlan()];
+  const requests = await advanceToPlan(page, fixtures);
+
+  await page.getByRole('button', { name: '返回上一步' }).click();
+  await page.getByRole('button', { name: '返回上一步' }).click();
+  await page.getByRole('button', { name: '继续类型判定' }).click();
+  expect(requests.filter((item) => item.method === 'intake')).toHaveLength(2);
+  await expect(page.locator('#type-card-B')).toBeVisible();
+
+  await page.getByRole('button', { name: '返回上一步' }).click();
+  await page.getByLabel('近期辅导困扰').fill('修改后的辅导困扰');
+  await page.getByRole('button', { name: '继续类型判定' }).click();
+
+  await expect.poll(() => requests.filter((item) => item.method === 'intake').length).toBe(3);
+  await expect(page.locator('#type-card-B')).toHaveCount(0);
+  await expect(page.locator('#coach-plan')).toHaveCount(0);
+  await expect(page.locator('#feedback-next-steps')).toHaveCount(0);
+});
+
+test('方案重新生成成功后会清空旧反馈输入和结果', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.plan = [coachingPlan(), nextPlan()];
+  fixtures.feedback = [...fixtures.feedback, ...fixtures.feedback];
+  await advanceToPlan(page, fixtures);
+  await page.getByRole('button', { name: '去反馈' }).click();
+  await page.getByLabel('本次沟通后的情况').fill('旧反馈内容');
+  await page.getByRole('button', { name: '生成下一步建议' }).click();
+  await expect(page.locator('#feedback-next-steps')).toBeVisible();
+
+  await page.getByRole('button', { name: '返回上一步' }).click();
+  await page.getByRole('button', { name: '换个角度' }).click();
+  await page.getByRole('button', { name: '去反馈' }).click();
+
+  await expect(page.getByLabel('本次沟通后的情况')).toHaveValue('');
+  await expect(page.locator('#feedback-next-steps')).toHaveCount(0);
+});
+
 test('顶部返回首页后迟到请求不会恢复旧会话', async ({ page }) => {
   await page.addInitScript(() => {
     const nativeFetch = window.fetch.bind(window);
