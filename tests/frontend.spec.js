@@ -342,6 +342,69 @@ test('阶段格式化跳过代码并且不影响普通 Markdown 卡片', async (
   await expect(gapFix.locator('p').filter({ hasText: '真实影响' })).toHaveText('Impact（影响）：真实影响。');
 });
 
+test('阶段格式化保护 Markdown 代码上下文中的容器围栏', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.plan = [envelope({
+    entry: ['普通切入点。'],
+    cautions: ['保持观察。'],
+    frequency: '每周一次',
+    gap_fix: [
+      '> > ```text',
+      '> > Goal（目标）：引用围栏示例',
+      '> > ```',
+      '',
+      '- ~~~text',
+      '  Reality（现状）：列表围栏示例',
+      '  ~~~',
+      '',
+      '说明。Goal（目标）：真实内容。Reality（现状）：真实现状。',
+    ],
+    scripts: ['保留普通话术。'],
+  })];
+  await advanceToPlan(page, fixtures);
+
+  const gapFix = page.locator('#plan-gap-fix');
+  await expect(gapFix.locator('blockquote blockquote pre code'))
+    .toHaveText('Goal（目标）：引用围栏示例\n');
+  await expect(gapFix.locator('li pre code'))
+    .toHaveText('Reality（现状）：列表围栏示例\n');
+  await expect(gapFix.locator('p').filter({ hasText: '真实内容' }))
+    .toHaveText('Goal（目标）：真实内容。');
+  await expect(gapFix.locator('p').filter({ hasText: '真实现状' }))
+    .toHaveText('Reality（现状）：真实现状。');
+});
+
+test('阶段格式化保护 Markdown 代码上下文中的跨行 code span', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.plan = [envelope({
+    entry: ['普通切入点。'],
+    cautions: ['保持观察。'],
+    frequency: '每周一次',
+    gap_fix: ['保留普通修正建议。'],
+    scripts: [
+      '跨行代码 ``Goal（目标）：代码目标',
+      'Reality（现状）：代码现状`` 保持完整。',
+      '说明。Options（可选方案）：真实选项。Will（行动承诺）：真实承诺。',
+      '未闭合 `代码标记',
+      '说明。Goal（目标）：未闭合后的真实目标。Reality（现状）：未闭合后的真实现状。',
+    ],
+  })];
+  await advanceToPlan(page, fixtures);
+
+  const scripts = page.locator('#plan-scripts');
+  await expect(scripts.locator('code')).toHaveCount(1);
+  await expect(scripts.locator('code'))
+    .toHaveText('Goal（目标）：代码目标 Reality（现状）：代码现状');
+  await expect(scripts.locator('p').filter({ hasText: '真实选项' }))
+    .toHaveText('Options（可选方案）：真实选项。');
+  await expect(scripts.locator('p').filter({ hasText: '真实承诺' }))
+    .toHaveText('Will（行动承诺）：真实承诺。 未闭合 `代码标记 说明。');
+  await expect(scripts.locator('p').filter({ hasText: '未闭合后的真实目标' }))
+    .toHaveText('Goal（目标）：未闭合后的真实目标。');
+  await expect(scripts.locator('p').filter({ hasText: '未闭合后的真实现状' }))
+    .toHaveText('Reality（现状）：未闭合后的真实现状。');
+});
+
 test('类型结果和流程步骤使用非交互类型卡片与命名导航语义', async ({ page }) => {
   await advanceToClassification(page);
 

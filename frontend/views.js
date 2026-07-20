@@ -128,26 +128,72 @@ function normalizeMarkdownSource(source) {
   return Array.isArray(source) ? source.join('\n') : source || '';
 }
 
-function findInlineCodeRanges(line, lineStart) {
-  const ranges = [];
+function rangeContaining(ranges, index) {
+  return ranges.find(([start, end]) => index >= start && index < end);
+}
+
+function findBacktickRuns(markdown, excludedRanges) {
+  const runs = [];
   let cursor = 0;
-  while (cursor < line.length) {
-    const opening = line.indexOf('`', cursor);
+  while (cursor < markdown.length) {
+    const opening = markdown.indexOf('`', cursor);
     if (opening === -1) break;
-    let markerLength = 1;
-    while (line[opening + markerLength] === '`') markerLength += 1;
-    const marker = '`'.repeat(markerLength);
-    const closing = line.indexOf(marker, opening + markerLength);
-    if (closing === -1) break;
-    ranges.push([lineStart + opening, lineStart + closing + markerLength]);
-    cursor = closing + markerLength;
+    const excluded = rangeContaining(excludedRanges, opening);
+    if (excluded) {
+      cursor = excluded[1];
+      continue;
+    }
+    let length = 1;
+    while (markdown[opening + length] === '`') length += 1;
+    runs.push({ index: opening, length });
+    cursor = opening + length;
+  }
+  return runs;
+}
+
+function findInlineCodeRanges(markdown, excludedRanges) {
+  const runs = findBacktickRuns(markdown, excludedRanges);
+  const ranges = [];
+  let openingIndex = 0;
+  while (openingIndex < runs.length) {
+    const opening = runs[openingIndex];
+    let closingIndex = openingIndex + 1;
+    while (closingIndex < runs.length) {
+      const closing = runs[closingIndex];
+      const between = markdown.slice(opening.index + opening.length, closing.index);
+      if (/\r?\n[ \t]*\r?\n/.test(between)) break;
+      if (closing.length === opening.length) {
+        ranges.push([opening.index, closing.index + closing.length]);
+        openingIndex = closingIndex;
+        break;
+      }
+      closingIndex += 1;
+    }
+    openingIndex += 1;
   }
   return ranges;
 }
 
+function stripBlockquoteAndIndent(line) {
+  let content = line;
+  let quotePrefix = content.match(/^[ \t]*>[ \t]?/);
+  while (quotePrefix) {
+    content = content.slice(quotePrefix[0].length);
+    quotePrefix = content.match(/^[ \t]*>[ \t]?/);
+  }
+  return content.replace(/^[ \t]+/, '');
+}
+
+function stripFenceOpeningPrefix(line) {
+  let content = stripBlockquoteAndIndent(line);
+  const listPrefix = content.match(/^(?:[-+*]|\d+[.)])[ \t]+/);
+  if (listPrefix) content = content.slice(listPrefix[0].length);
+  return content.replace(/^[ \t]+/, '');
+}
+
 function inspectMarkdownLines(markdown) {
   const lines = [];
-  const protectedRanges = [];
+  const fencedRanges = [];
   let lineStart = 0;
   let fence = null;
 
@@ -162,18 +208,16 @@ function inspectMarkdownLines(markdown) {
     lines.push(line);
 
     if (fence) {
-      protectedRanges.push([lineStart, separatorEnd]);
+      fencedRanges.push([lineStart, separatorEnd]);
       const closingFence = new RegExp(
-        `^[ \\t]{0,3}${escapeRegExp(fence.marker)}{${fence.length},}[ \\t]*$`,
+        `^${escapeRegExp(fence.marker)}{${fence.length},}[ \\t]*$`,
       );
-      if (closingFence.test(text)) fence = null;
+      if (closingFence.test(stripBlockquoteAndIndent(text))) fence = null;
     } else {
-      const openingFence = text.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+      const openingFence = stripFenceOpeningPrefix(text).match(/^(`{3,}|~{3,})/);
       if (openingFence) {
         fence = { marker: openingFence[1][0], length: openingFence[1].length };
-        protectedRanges.push([lineStart, separatorEnd]);
-      } else {
-        protectedRanges.push(...findInlineCodeRanges(text, lineStart));
+        fencedRanges.push([lineStart, separatorEnd]);
       }
     }
 
@@ -181,6 +225,10 @@ function inspectMarkdownLines(markdown) {
     lineStart = separatorEnd;
   }
 
+  const protectedRanges = [
+    ...fencedRanges,
+    ...findInlineCodeRanges(markdown, fencedRanges),
+  ];
   return { lines, protectedRanges };
 }
 
