@@ -265,6 +265,83 @@ test('GROW 和 SBI 的每个阶段分别显示为独立段落', async ({ page })
   await expectStageLabelsInSeparateParagraphs(page.locator('#feedback-next-steps'), sbiLabels);
 });
 
+test('阶段格式化兼容空格冒号并保留 Markdown 列表结构', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.plan = [envelope({
+    entry: ['普通切入点。'],
+    cautions: ['保持观察。'],
+    frequency: '每周一次',
+    gap_fix: ['说明。**Situation（情境）** ：空格全角冒号。**Behavior（行为）**:半角冒号。**Impact（影响）：**冒号在粗体内。'],
+    scripts: [
+      '- **Goal（目标）**：列表内容；**Reality（现状）**:后续内容。',
+      '**Options（可选方案）** ：选项内容。Will（行动承诺）:承诺内容。',
+    ],
+  })];
+  await advanceToPlan(page, fixtures);
+
+  const gapFix = page.locator('#plan-gap-fix');
+  const scripts = page.locator('#plan-scripts');
+  await expectStageLabelsInSeparateParagraphs(gapFix, ['Situation（情境）', 'Behavior（行为）', 'Impact（影响）']);
+  await expect(gapFix.locator('p').filter({ hasText: 'Situation（情境）' }))
+    .toHaveText('Situation（情境） ：空格全角冒号。');
+  await expectStageLabelsInSeparateParagraphs(scripts, ['Goal（目标）', 'Reality（现状）', 'Options（可选方案）', 'Will（行动承诺）']);
+
+  const listItem = scripts.locator('li');
+  await expect(listItem).toHaveCount(1);
+  await expect(listItem.locator('p')).toHaveCount(2);
+  await expect(listItem.locator('p').first()).toContainText('Goal（目标）：列表内容');
+  await expect(listItem.locator('p').nth(1)).toContainText('Reality（现状）:后续内容');
+  await expect(scripts.locator('li:empty')).toHaveCount(0);
+
+  const renderedText = await scripts.textContent();
+  const expectedOrder = [
+    'Goal（目标）', '列表内容', 'Reality（现状）', '后续内容',
+    'Options（可选方案）', '选项内容', 'Will（行动承诺）', '承诺内容',
+  ];
+  let previousIndex = -1;
+  for (const fragment of expectedOrder) {
+    const currentIndex = renderedText.indexOf(fragment, previousIndex + 1);
+    expect(currentIndex).toBeGreaterThan(previousIndex);
+    previousIndex = currentIndex;
+  }
+});
+
+test('阶段格式化跳过代码并且不影响普通 Markdown 卡片', async ({ page }) => {
+  const fixtures = defaultFixtures();
+  fixtures.plan = [envelope({
+    entry: ['Goal（目标）：普通卡片内容。Reality（现状）：仍在同一段。'],
+    cautions: ['保持观察。'],
+    frequency: '每周一次',
+    gap_fix: [
+      '`Goal（目标）：行内示例` 保持行内。**Situation（情境）**：真实情境。',
+      '```text',
+      'Behavior（行为）：反引号围栏示例',
+      'Impact（影响）：反引号围栏示例',
+      '```',
+      '**Behavior（行为）**：真实行为。**Impact（影响）**：真实影响。',
+      '~~~text',
+      'Goal（目标）：波浪围栏示例',
+      '~~~',
+    ],
+    scripts: ['保留普通话术。'],
+  })];
+  await advanceToPlan(page, fixtures);
+
+  const entry = page.locator('#plan-entry');
+  await expect(entry.locator('p')).toHaveCount(1);
+  await expect(entry.locator('p')).toContainText('Goal（目标）：普通卡片内容。Reality（现状）：仍在同一段。');
+
+  const gapFix = page.locator('#plan-gap-fix');
+  await expect(gapFix.locator('p code')).toHaveText('Goal（目标）：行内示例');
+  await expect(gapFix.locator('pre')).toHaveCount(2);
+  await expect(gapFix.locator('pre').first()).toHaveText('Behavior（行为）：反引号围栏示例\nImpact（影响）：反引号围栏示例\n');
+  await expect(gapFix.locator('pre').nth(1)).toHaveText('Goal（目标）：波浪围栏示例\n');
+  await expectStageLabelsInSeparateParagraphs(gapFix, ['Situation（情境）', 'Behavior（行为）', 'Impact（影响）']);
+  await expect(gapFix.locator('p').filter({ hasText: '真实情境' })).toHaveText('Situation（情境）：真实情境。');
+  await expect(gapFix.locator('p').filter({ hasText: '真实行为' })).toHaveText('Behavior（行为）：真实行为。');
+  await expect(gapFix.locator('p').filter({ hasText: '真实影响' })).toHaveText('Impact（影响）：真实影响。');
+});
+
 test('类型结果和流程步骤使用非交互类型卡片与命名导航语义', async ({ page }) => {
   await advanceToClassification(page);
 

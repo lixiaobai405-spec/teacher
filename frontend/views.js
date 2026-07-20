@@ -128,21 +128,110 @@ function normalizeMarkdownSource(source) {
   return Array.isArray(source) ? source.join('\n') : source || '';
 }
 
+function findInlineCodeRanges(line, lineStart) {
+  const ranges = [];
+  let cursor = 0;
+  while (cursor < line.length) {
+    const opening = line.indexOf('`', cursor);
+    if (opening === -1) break;
+    let markerLength = 1;
+    while (line[opening + markerLength] === '`') markerLength += 1;
+    const marker = '`'.repeat(markerLength);
+    const closing = line.indexOf(marker, opening + markerLength);
+    if (closing === -1) break;
+    ranges.push([lineStart + opening, lineStart + closing + markerLength]);
+    cursor = closing + markerLength;
+  }
+  return ranges;
+}
+
+function inspectMarkdownLines(markdown) {
+  const lines = [];
+  const protectedRanges = [];
+  let lineStart = 0;
+  let fence = null;
+
+  while (lineStart <= markdown.length) {
+    const newline = markdown.indexOf('\n', lineStart);
+    const lineEnd = newline === -1
+      ? markdown.length
+      : newline > lineStart && markdown[newline - 1] === '\r' ? newline - 1 : newline;
+    const separatorEnd = newline === -1 ? markdown.length : newline + 1;
+    const text = markdown.slice(lineStart, lineEnd);
+    const line = { start: lineStart, end: lineEnd, text };
+    lines.push(line);
+
+    if (fence) {
+      protectedRanges.push([lineStart, separatorEnd]);
+      const closingFence = new RegExp(
+        `^[ \\t]{0,3}${escapeRegExp(fence.marker)}{${fence.length},}[ \\t]*$`,
+      );
+      if (closingFence.test(text)) fence = null;
+    } else {
+      const openingFence = text.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+      if (openingFence) {
+        fence = { marker: openingFence[1][0], length: openingFence[1].length };
+        protectedRanges.push([lineStart, separatorEnd]);
+      } else {
+        protectedRanges.push(...findInlineCodeRanges(text, lineStart));
+      }
+    }
+
+    if (newline === -1) break;
+    lineStart = separatorEnd;
+  }
+
+  return { lines, protectedRanges };
+}
+
+function parseMarkdownPrefix(value, requireFullMatch = false) {
+  const match = value.match(/^([ \t]*(?:(?:>[ \t]*)+)?)(?:([-+*]|\d+[.)])([ \t]+)|(#{1,6})([ \t]+))?/);
+  if (!match || (requireFullMatch && match[0].length !== value.length)) return null;
+  if (match[4]) return { continuation: match[1] };
+  if (match[2]) {
+    return { continuation: `${match[1]}${' '.repeat(match[2].length + match[3].length)}` };
+  }
+  return { continuation: match[1] };
+}
+
 function formatCoachingStageMarkdown(source) {
   const markdown = normalizeMarkdownSource(source);
   const labels = COACHING_STAGE_LABELS.map(escapeRegExp).join('|');
   const stageLabel = new RegExp(
-    `(?:\\*\\*(?:${labels})(?:\\*\\*[：:]|[：:]\\*\\*)|(?:${labels})[：:])`,
+    `(?:\\*\\*(?:${labels})(?:\\*\\*[ \\t]*[：:]|[ \\t]*[：:]\\*\\*)|(?:${labels})[ \\t]*[：:])`,
     'g',
   );
   const lineBreak = markdown.includes('\r\n') ? '\r\n' : '\n';
+  const { lines, protectedRanges } = inspectMarkdownLines(markdown);
+  const insertions = [];
+  let lineIndex = 0;
+  let match;
 
-  return markdown.replace(stageLabel, (match, offset) => {
-    const before = markdown.slice(0, offset);
-    if (before.trim().length === 0 || /\r?\n[ \t]*\r?\n[ \t]*$/.test(before)) return match;
-    if (/\r?\n[ \t]*$/.test(before)) return `${lineBreak}${match}`;
-    return `${lineBreak}${lineBreak}${match}`;
-  });
+  while ((match = stageLabel.exec(markdown)) !== null) {
+    const matchIndex = match.index;
+    if (protectedRanges.some(([start, end]) => matchIndex >= start && matchIndex < end)) continue;
+    while (lineIndex + 1 < lines.length && matchIndex >= lines[lineIndex + 1].start) lineIndex += 1;
+
+    const line = lines[lineIndex];
+    const prefix = parseMarkdownPrefix(markdown.slice(line.start, matchIndex), true);
+    if (prefix) {
+      const priorLineIsBlank = lineIndex === 0 || lines[lineIndex - 1].text.trim().length === 0;
+      if (!priorLineIsBlank) insertions.push({ index: line.start, text: lineBreak });
+      continue;
+    }
+
+    const continuation = parseMarkdownPrefix(line.text)?.continuation || '';
+    insertions.push({ index: matchIndex, text: `${lineBreak}${lineBreak}${continuation}` });
+  }
+
+  let formatted = '';
+  let cursor = 0;
+  for (const insertion of insertions) {
+    formatted += markdown.slice(cursor, insertion.index) + insertion.text;
+    cursor = insertion.index;
+  }
+  formatted += markdown.slice(cursor);
+  return formatted;
 }
 
 function markdownCard(parent, id, title, source, options = {}) {
