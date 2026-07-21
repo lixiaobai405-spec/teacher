@@ -1,4 +1,9 @@
-import { CLASSIFICATION_LABELS, typeLabel } from './labels.js';
+import { CLASSIFICATION_LABELS } from './labels.js';
+import {
+  PUBLIC_PROFILES,
+  publicProfileId,
+  resolveFinalClassification,
+} from './profile-selection.js';
 
 const STEPS = [
   ['员工信息输入', '特征 + 绩效期望'],
@@ -446,7 +451,7 @@ function renderClassification(root, state, handlers) {
     'classification',
     '节点 ② · AI动作',
     '类型判定',
-    '展示能力 × 意愿的结构化判定；类型名称始终来自预置标签。',
+    '基于能力 × 意愿匹配四类画像。AI 给出推荐，你可以确认或改选。',
   );
   const classification = state.classification;
   if (!classification) {
@@ -460,26 +465,58 @@ function renderClassification(root, state, handlers) {
     return;
   }
 
-  const typeGrid = node('div', { className: 'typegrid' });
-  if (classification.type_id) {
-    const card = node('article', {
-      id: `type-card-${classification.type_id}`,
-      className: 'tcard match',
-      text: typeLabel(classification.type_id),
-    });
-    card.setAttribute('aria-label', '判定类型');
-    typeGrid.append(card);
+  let finalClassification = classification;
+  if (classification.status === '已判定') {
+    const typeGrid = node('div', { className: 'typegrid' });
+    typeGrid.setAttribute('role', 'radiogroup');
+    typeGrid.setAttribute('aria-label', '员工画像选择');
+    const aiProfileId = publicProfileId(classification.type_id);
+    const selectedProfileId = state.selectedProfileId || aiProfileId;
+
+    for (const profile of PUBLIC_PROFILES) {
+      const card = button(
+        `type-card-${profile.id}`,
+        '',
+        () => handlers.selectProfile(profile.id),
+        { secondary: true },
+      );
+      card.className = `tcard ${profile.id === selectedProfileId ? 'selected' : ''}`;
+      card.dataset.profileId = profile.id;
+      card.setAttribute('role', 'radio');
+      card.setAttribute('aria-checked', String(profile.id === selectedProfileId));
+      card.setAttribute('aria-label', `${profile.ability}能力${profile.will}意愿，${profile.name}`);
+      card.append(
+        node('div', { className: 'qbadge', text: `${profile.ability}能力 · ${profile.will}意愿` }),
+        node('div', { className: 'tcard-name', text: profile.name }),
+        node('div', { className: 'tcard-kw', text: profile.description }),
+      );
+      if (profile.id === aiProfileId) {
+        card.append(node('span', {
+          className: 'ai-matchflag',
+          text: profile.id === selectedProfileId ? '最匹配' : 'AI推荐',
+        }));
+      }
+      if (profile.id === selectedProfileId && profile.id !== aiProfileId) {
+        card.append(node('span', { className: 'selected-flag', text: '已选' }));
+      }
+      typeGrid.append(card);
+    }
+    body.append(typeGrid);
+    finalClassification = resolveFinalClassification(
+      classification,
+      selectedProfileId,
+      state.intake,
+    );
   }
-  body.append(typeGrid);
 
   const details = node('div', { className: 'rcard' });
   const rows = [
-    [CLASSIFICATION_LABELS.status, classification.status],
+    [CLASSIFICATION_LABELS.status, finalClassification.status],
     [CLASSIFICATION_LABELS.classification_confidence, classification.classification_confidence],
-    [CLASSIFICATION_LABELS.ability, classification.ability],
-    [CLASSIFICATION_LABELS.will, classification.will],
-    [CLASSIFICATION_LABELS.strategy, classification.strategy],
-    [CLASSIFICATION_LABELS.coach_mode, classification.coach_mode],
+    [CLASSIFICATION_LABELS.ability, finalClassification.ability],
+    [CLASSIFICATION_LABELS.will, finalClassification.will],
+    [CLASSIFICATION_LABELS.strategy, finalClassification.strategy],
+    [CLASSIFICATION_LABELS.coach_mode, finalClassification.coach_mode],
   ];
   rows.forEach(([label, value]) => {
     const row = node('p');
@@ -488,7 +525,7 @@ function renderClassification(root, state, handlers) {
   });
   details.append(
     node('h3', { className: 'rcard-h', text: CLASSIFICATION_LABELS.reason }),
-    node('p', { text: classification.reason || '未提供' }),
+    node('p', { text: finalClassification.reason || '未提供' }),
   );
   details.append(node('h3', { className: 'rcard-h', text: '判定证据' }));
   appendQuestions(details, classification.evidence);

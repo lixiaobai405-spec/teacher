@@ -168,6 +168,38 @@ test('resetSession 清除本轮画像选择', async ({ page }) => {
   expect(selectedProfileId).toBeNull();
 });
 
+test('AI 推荐默认选中且用户可无 API 改选画像', async ({ page }) => {
+  const requests = await advanceToClassification(page);
+  const requestCount = requests.length;
+  const cards = page.locator('[data-profile-id]');
+
+  await expect(cards).toHaveCount(4);
+  await expect(cards.locator('.tcard-name')).toHaveText([
+    '熟手待激活型',
+    '核心明星型',
+    '潜力新兵型',
+    '待改进型',
+  ]);
+  await expect(page.getByText(/D1|D2/)).toHaveCount(0);
+  await expect(page.locator('[data-profile-id="B"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-profile-id="B"]')).toContainText('最匹配');
+
+  await page.locator('[data-profile-id="A"]').click();
+  await expect(page.locator('[data-profile-id="A"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-profile-id="A"]')).toContainText('已选');
+  await expect(page.locator('[data-profile-id="B"]')).toContainText('AI推荐');
+  expect(requests).toHaveLength(requestCount);
+});
+
+test('画像卡支持键盘改选并保持单选语义', async ({ page }) => {
+  await advanceToClassification(page);
+  const group = page.getByRole('radiogroup', { name: '员工画像选择' });
+  await expect(group.getByRole('radio')).toHaveCount(4);
+  await group.getByRole('radio', { name: /核心明星型/ }).focus();
+  await page.keyboard.press('Space');
+  await expect(group.getByRole('radio', { name: /核心明星型/ })).toHaveAttribute('aria-checked', 'true');
+});
+
 for (const width of [390, 768, 1440]) {
   test(`${width}px 下五页布局没有整页横向溢出`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -730,12 +762,13 @@ test('阶段格式化对齐服务端边界且不拆分链接文本中的标签',
     .toHaveText('Impact（影响）：真实影响。');
 });
 
-test('类型结果和流程步骤使用非交互类型卡片与命名导航语义', async ({ page }) => {
+test('四种前台画像与流程步骤使用可访问单选和命名导航语义', async ({ page }) => {
   await advanceToClassification(page);
 
-  const typeCard = page.locator('#type-card-B');
-  expect(await typeCard.evaluate((element) => element.tagName)).toBe('ARTICLE');
-  await expect(typeCard).toContainText('成熟待激活型');
+  const typeCards = page.locator('[data-profile-id]');
+  await expect(typeCards).toHaveCount(4);
+  expect(await typeCards.first().evaluate((element) => element.tagName)).toBe('BUTTON');
+  await expect(typeCards).toContainText(['熟手待激活型', '核心明星型', '潜力新兵型', '待改进型']);
 
   const navigation = page.getByRole('navigation', { name: '辅导流程' });
   await expect(navigation.locator('ol > li')).toHaveCount(4);

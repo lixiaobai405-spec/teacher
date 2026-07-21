@@ -16,6 +16,7 @@ import {
   setIntakeResult,
   setPlan,
   setScreen,
+  setSelectedProfileId,
 } from './state.js';
 import {
   cancelPendingRequests,
@@ -26,6 +27,7 @@ import {
   submitFeedback,
 } from './api.js';
 import { renderApp } from './views.js';
+import { publicProfileId } from './profile-selection.js';
 
 const root = document.getElementById('app');
 const toastElement = document.getElementById('toast');
@@ -161,7 +163,17 @@ async function generateClassification() {
   if (!data) return;
   markSubmission('classification', payload);
   setClassification(data);
+  setSelectedProfileId(data.status === '已判定' ? publicProfileId(data.type_id) : null);
   setScreen('classification', 2);
+  render();
+}
+
+function selectProfile(profileId) {
+  if (!session.classification || session.classification.status !== '已判定') return;
+  if (session.selectedProfileId === profileId) return;
+  setSelectedProfileId(profileId);
+  clearDownstream('classification');
+  setError(null);
   render();
 }
 
@@ -247,6 +259,7 @@ function continueSupplement() {
   const questions = session.classification && session.classification.questions;
   setIntakeResult({ ...session.intakeResult, questions: Array.isArray(questions) ? questions : [] });
   setClassification(null);
+  setSelectedProfileId(null);
   setScreen('intake', 1);
   render();
 }
@@ -256,6 +269,7 @@ const handlers = {
   reviewIntake,
   reviewAgain,
   generateClassification,
+  selectProfile,
   generatePlan: () => requestPlan(false),
   regeneratePlan: () => requestPlan(true),
   generateFeedback,

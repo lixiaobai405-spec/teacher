@@ -98,6 +98,68 @@
   background: var(--purple-300);
 }
 
+.tcard {
+  position: relative;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+
+.tcard:hover {
+  border-color: var(--orange);
+}
+
+.tcard:focus-visible {
+  outline: 3px solid var(--orange-tint);
+  outline-offset: 2px;
+}
+
+.tcard.selected {
+  border-color: var(--purple);
+  background: var(--purple-tint);
+  box-shadow: var(--shadow);
+}
+
+.qbadge {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tcard-name {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tcard-kw {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ai-matchflag,
+.selected-flag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ai-matchflag {
+  background: var(--orange);
+  color: #fff;
+}
+
+.selected-flag {
+  background: var(--purple);
+  color: #fff;
+}
+
 @media (max-width: 820px) {
   .topbar .brand {
     min-width: 0;
