@@ -1,7 +1,7 @@
 const SESSION_KEYS = new Set([
   'screen', 'step', 'busy', 'intake', 'answers', 'intakeResult',
   'classification', 'plan', 'feedback', 'feedbackText', 'blocked', 'error',
-  'submissionKeys',
+  'submissionKeys', 'selectedProfileId',
 ]);
 
 export function createInitialState() {
@@ -20,6 +20,7 @@ export function createInitialState() {
     blocked: null,
     error: null,
     submissionKeys: { intake: null, classification: null, plan: null },
+    selectedProfileId: null,
   };
 }
 
@@ -56,6 +57,10 @@ export function setIntakeResult(intakeResult) {
 
 export function setClassification(classification) {
   updateSession({ classification });
+}
+
+export function setSelectedProfileId(selectedProfileId) {
+  updateSession({ selectedProfileId: selectedProfileId || null });
 }
 
 export function setPlan(plan) {
@@ -124,6 +129,7 @@ export function clearDownstream(stage) {
       feedback: null,
       feedbackText: '',
       blocked: null,
+      selectedProfileId: null,
       submissionKeys: { ...session.submissionKeys, classification: null, plan: null },
     });
     return;

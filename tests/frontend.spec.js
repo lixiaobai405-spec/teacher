@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const {
   coachingPlan,
+  classifiedAs,
   defaultFixtures,
   envelope,
   nextPlan,
@@ -124,6 +125,47 @@ test('完整流程五页使用统一的参考视觉结构', async ({ page }) => 
   await page.getByRole('button', { name: '去反馈' }).click();
   await expect(page.locator('.panel[data-stage="feedback"]')).toBeVisible();
   expect(requests.map(({ method }) => method)).toEqual(['intake', 'intake', 'classify', 'plan']);
+});
+
+test('纯画像模块把 D1 D2 收敛为前台 D 并按入职时长解析隐藏类型', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const module = await import('/profile-selection.js');
+    const source = {
+      ability: '高',
+      will: '低',
+      quadrant: 'B',
+      type_id: 'B',
+      status: '已判定',
+      classification_confidence: '中',
+      strategy: '激发意愿',
+      coach_mode: '诱导式',
+      reason: 'AI 原始依据。',
+      evidence: ['能力高', '意愿低'],
+      questions: [],
+    };
+    return {
+      publicD1: module.publicProfileId('D1'),
+      publicD2: module.publicProfileId('D2'),
+      newHire: module.resolveFinalClassification(source, 'D', { tenure: '3 个月内（新人）' }),
+      established: module.resolveFinalClassification(source, 'D', { tenure: '1 年以上' }),
+    };
+  });
+  expect(result.publicD1).toBe('D');
+  expect(result.publicD2).toBe('D');
+  expect(result.newHire).toMatchObject({ type_id: 'D1', strategy: '手把手带', coach_mode: '教导式' });
+  expect(result.established).toMatchObject({ type_id: 'D2', strategy: '绩效改进/优化', coach_mode: '绩效面谈' });
+});
+
+test('resetSession 清除本轮画像选择', async ({ page }) => {
+  await page.goto('/');
+  const selectedProfileId = await page.evaluate(async () => {
+    const state = await import('/state.js');
+    state.setSelectedProfileId('A');
+    state.resetSession();
+    return state.session.selectedProfileId;
+  });
+  expect(selectedProfileId).toBeNull();
 });
 
 for (const width of [390, 768, 1440]) {
