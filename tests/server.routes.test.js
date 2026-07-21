@@ -341,7 +341,7 @@ test('同源进程仅让 HTML 响应不可缓存', async () => {
       assert.equal(response.status, 200);
       assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.match(response.headers.get('content-type'), /^text\/html/);
-      assert.match(await response.text(), /<title>教练助手 · 交互原型<\/title>/);
+      assert.match(await response.text(), /<title>管理团队-教练助手<\/title>/);
     }
 
     const script = await fetch(`${origin}/markdown-renderer.js`);
