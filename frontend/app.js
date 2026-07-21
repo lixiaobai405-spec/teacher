@@ -184,7 +184,7 @@ function toggleTrait(trait) {
     ? session.selectedTraits.filter((item) => item !== trait)
     : [...session.selectedTraits, trait];
   setSelectedTraits(selected);
-  render();
+  return session.selectedTraits.includes(trait);
 }
 
 function updateTraitNote(value) {

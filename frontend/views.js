@@ -489,7 +489,11 @@ function renderIntake(root, state, handlers) {
       type: 'button',
     });
     chip.setAttribute('aria-pressed', String(selected));
-    chip.addEventListener('click', () => handlers.toggleTrait(keyword));
+    chip.addEventListener('click', () => {
+      const isSelected = handlers.toggleTrait(keyword);
+      chip.classList.toggle('sel', isSelected);
+      chip.setAttribute('aria-pressed', String(isSelected));
+    });
     chipset.append(chip);
   }
   const traitNote = node('textarea', { id: 'home-traits', value: state.traitNote || '' });
