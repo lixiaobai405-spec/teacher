@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   FACT_BOUNDARY_CODES,
+  findFactBoundaryDiagnostics,
   findFactBoundaryIssues,
 } = require('../server/fact-boundary.js');
 
@@ -111,4 +112,19 @@ test('仍拒绝事实源中不存在的建议时长和次数', () => {
     source: { goal: '提升主动同步意愿。' },
     generated: { frequency: '建议每周沟通3次，每次15分钟。' },
   }), [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]);
+});
+
+test('数字诊断只返回书写形式和单位而不返回数值或上下文', () => {
+  const diagnostics = findFactBoundaryDiagnostics({
+    source: { goal: '每周主动汇报一次进展。' },
+    generated: {
+      frequency: '建议每周1次，每次15分钟，由员工完成。',
+    },
+  });
+
+  assert.deepEqual(diagnostics, {
+    issues: [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER],
+    numberKinds: ['arabic:分钟'],
+  });
+  assert.doesNotMatch(JSON.stringify(diagnostics), /15|员工|进展/);
 });

@@ -14,6 +14,7 @@ const CHINESE_DIGITS = Object.freeze({
 });
 const CHINESE_UNITS = Object.freeze({ 十: 10, 百: 100, 千: 1000, 万: 10000 });
 const CHINESE_QUANTITY_PATTERN = /^([零一二两三四五六七八九十百千万]+)(次|天|周|月|年|小时|分钟|人|项|个|分|元|周期)$/;
+const NUMBER_UNIT_PATTERN = /(次|天|周|月|年|小时|分钟|人|项|个|分|元|周期)$/;
 const SURNAME = '赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜谢邹苏潘葛范彭鲁韦马方任袁唐罗薛伍余姚孟顾尹江钟';
 const BARE_PERSON_SURNAME = SURNAME.replace('周', '');
 const PERSON_PATTERN = new RegExp(
@@ -83,6 +84,14 @@ function normalizeNumberToken(token) {
   return value;
 }
 
+function describeNumberKind(token) {
+  const value = compact(token);
+  const style = /^\d/.test(value) ? 'arabic' : 'chinese';
+  if (value.endsWith('%') || value.startsWith('百分之')) return `${style}:percent`;
+  const unit = NUMBER_UNIT_PATTERN.exec(value)?.[1];
+  return unit ? `${style}:${unit}` : null;
+}
+
 function missingTokens(pattern, generatedText, sourceText, normalizeToken = compact) {
   const sourceTokens = new Set(
     (sourceText.match(pattern) || []).map((token) => normalizeToken(token)),
@@ -91,15 +100,21 @@ function missingTokens(pattern, generatedText, sourceText, normalizeToken = comp
   return generatedTokens.filter((token) => !sourceTokens.has(normalizeToken(token)));
 }
 
-function findFactBoundaryIssues({ source, generated } = {}) {
+function findFactBoundaryDiagnostics({ source, generated } = {}) {
   const sourceText = compact(collectStrings(source).join(' '));
   const generatedText = collectStrings(generated).join(' ');
   const issues = [];
+  const missingNumbers = missingTokens(
+    NUMBER_PATTERN,
+    generatedText,
+    sourceText,
+    normalizeNumberToken,
+  );
 
   if (missingTokens(DATE_PATTERN, generatedText, sourceText).length > 0) {
     issues.push(FACT_BOUNDARY_CODES.UNSUPPORTED_DATE);
   }
-  if (missingTokens(NUMBER_PATTERN, generatedText, sourceText, normalizeNumberToken).length > 0) {
+  if (missingNumbers.length > 0) {
     issues.push(FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER);
   }
   if (missingTokens(PERSON_PATTERN, generatedText, sourceText).length > 0) {
@@ -115,7 +130,18 @@ function findFactBoundaryIssues({ source, generated } = {}) {
 
   if (unsupported(RESULT_PATTERN)) issues.push(FACT_BOUNDARY_CODES.UNSUPPORTED_RESULT);
   if (unsupported(CAUSALITY_PATTERN)) issues.push(FACT_BOUNDARY_CODES.UNSUPPORTED_CAUSALITY);
-  return issues;
+  return {
+    issues,
+    numberKinds: [...new Set(missingNumbers.map(describeNumberKind).filter(Boolean))].slice(0, 5),
+  };
 }
 
-module.exports = { FACT_BOUNDARY_CODES, findFactBoundaryIssues };
+function findFactBoundaryIssues(options) {
+  return findFactBoundaryDiagnostics(options).issues;
+}
+
+module.exports = {
+  FACT_BOUNDARY_CODES,
+  findFactBoundaryDiagnostics,
+  findFactBoundaryIssues,
+};

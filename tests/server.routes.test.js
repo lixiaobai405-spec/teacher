@@ -742,6 +742,55 @@ test('DeepSeek 客户端为两次语义拒绝只记录稳定诊断码', async ()
   );
 });
 
+test('模型拒绝日志只接受白名单数字种类且不记录具体数字', async () => {
+  const warnings = [];
+  const client = createDeepSeekClient({
+    apiKey: 'secret-key',
+    logger: {
+      warn(event, details) {
+        warnings.push({ event, details });
+      },
+    },
+    fetchImpl: async () => okModelResponse('{"value":"invalid"}'),
+  });
+
+  await assert.rejects(
+    () => client.complete({
+      messages: [{ role: 'user', content: 'private employee text' }],
+      validate: () => false,
+      diagnose: () => ['UNSUPPORTED_NUMBER'],
+      diagnoseDetails: () => ({
+        numberKinds: ['arabic:分钟', 'invalid:15分钟', 'private employee text'],
+      }),
+      buildRetryMessage: (issues) => `PLAN_CONTRACT_REPAIR\n${issues.join('\n')}`,
+    }),
+    { code: 'INVALID_MODEL_RESPONSE' },
+  );
+
+  assert.deepEqual(warnings, [
+    {
+      event: 'MODEL_RESPONSE_REJECTED',
+      details: {
+        attempt: 1,
+        issues: ['UNSUPPORTED_NUMBER'],
+        numberKinds: ['arabic:分钟'],
+      },
+    },
+    {
+      event: 'MODEL_RESPONSE_REJECTED',
+      details: {
+        attempt: 2,
+        issues: ['UNSUPPORTED_NUMBER'],
+        numberKinds: ['arabic:分钟'],
+      },
+    },
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(warnings),
+    /secret-key|private employee text|15分钟/,
+  );
+});
+
 test('JSON 不可解析时仍按原请求重试且不伪造诊断', async () => {
   const requestBodies = [];
   const client = createDeepSeekClient({

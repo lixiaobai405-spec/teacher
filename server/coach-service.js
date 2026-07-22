@@ -9,7 +9,7 @@ const {
 } = require('./contracts.js');
 const {
   FACT_BOUNDARY_CODES,
-  findFactBoundaryIssues,
+  findFactBoundaryDiagnostics,
 } = require('./fact-boundary.js');
 const { findHighRiskIntent } = require('./guardrails.js');
 
@@ -135,15 +135,18 @@ function buildFactBoundaryRetryMessage(issues) {
 }
 
 function createFactAwareValidation({ baseValidate, source, selectGenerated }) {
-  const diagnose = (payload) => {
-    if (!baseValidate(payload)) return [];
-    return findFactBoundaryIssues({
+  const inspect = (payload) => {
+    if (!baseValidate(payload)) return { issues: [], numberKinds: [] };
+    return findFactBoundaryDiagnostics({
       source,
       generated: selectGenerated(payload),
     });
   };
+  const diagnose = (payload) => inspect(payload).issues;
+
   return {
     diagnose,
+    diagnoseDetails: (payload) => ({ numberKinds: inspect(payload).numberKinds }),
     validate: (payload) => baseValidate(payload) && diagnose(payload).length === 0,
   };
 }
@@ -206,7 +209,7 @@ function createCoachService({ promptLoader, client } = {}) {
       intake: request.intake,
       answers: request.answers || {},
     };
-    const { validate, diagnose } = createFactAwareValidation({
+    const { validate, diagnose, diagnoseDetails } = createFactAwareValidation({
       baseValidate: validateIntake,
       source: payload,
       selectGenerated: (result) => result && result.normalized_profile,
@@ -214,6 +217,7 @@ function createCoachService({ promptLoader, client } = {}) {
 
     return completeStep(1, payload, validate, 0.25, 900, {
       diagnose,
+      diagnoseDetails,
       buildRetryMessage: buildFactBoundaryRetryMessage,
     });
   }
@@ -228,7 +232,7 @@ function createCoachService({ promptLoader, client } = {}) {
     const payload = {
       normalized_profile: request.normalizedProfile,
     };
-    const { validate, diagnose } = createFactAwareValidation({
+    const { validate, diagnose, diagnoseDetails } = createFactAwareValidation({
       baseValidate: validateModelClassification,
       source: request.normalizedProfile,
       selectGenerated: (result) => result && ({
@@ -238,6 +242,7 @@ function createCoachService({ promptLoader, client } = {}) {
     });
     const modelResult = await completeStep(2, payload, validate, 0.25, 900, {
       diagnose,
+      diagnoseDetails,
       buildRetryMessage: buildFactBoundaryRetryMessage,
     });
     const { confidence, ...classification } = modelResult;
@@ -284,10 +289,20 @@ function createCoachService({ promptLoader, client } = {}) {
       classificationReason: request.classification.reason,
       previousPlan: request.regenerate ? request.previousPlan : null,
     };
-    const diagnose = (payload) => [
-      ...findPlanValidationIssues(payload, { typeId }),
-      ...findFactBoundaryIssues({ source, generated: payload }),
-    ];
+    const inspectPlan = (payload) => {
+      const factDiagnostics = findFactBoundaryDiagnostics({ source, generated: payload });
+      return {
+        issues: [
+          ...findPlanValidationIssues(payload, { typeId }),
+          ...factDiagnostics.issues,
+        ],
+        numberKinds: factDiagnostics.numberKinds,
+      };
+    };
+    const diagnose = (payload) => inspectPlan(payload).issues;
+    const diagnoseDetails = (payload) => ({
+      numberKinds: inspectPlan(payload).numberKinds,
+    });
     const validate = (payload) => diagnose(payload).length === 0;
     const temperature = request.regenerate ? 0.45 : 0.3;
     const result = await completeStep(3, {
@@ -304,6 +319,7 @@ function createCoachService({ promptLoader, client } = {}) {
       previous_plan: request.previousPlan,
     }, validate, temperature, 1400, {
       diagnose,
+      diagnoseDetails,
       buildRetryMessage: buildPlanRetryMessage,
     });
     const highRiskIntent = findHighRiskIntent(result);
@@ -331,7 +347,7 @@ function createCoachService({ promptLoader, client } = {}) {
     }
 
     const requireSbi = request.feedbackText.trim().length > 0;
-    const { validate, diagnose } = createFactAwareValidation({
+    const { validate, diagnose, diagnoseDetails } = createFactAwareValidation({
       baseValidate: (payload) => validateFeedback(payload, { requireSbi }),
       source: {
         classificationReason: request.classification.reason,
@@ -350,6 +366,7 @@ function createCoachService({ promptLoader, client } = {}) {
       requires_sbi: requireSbi,
     }, validate, 0.55, 1000, {
       diagnose,
+      diagnoseDetails,
       buildRetryMessage: buildFactBoundaryRetryMessage,
     });
     const highRiskIntent = findHighRiskIntent(result);
