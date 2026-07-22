@@ -50,3 +50,24 @@ test('稳定错误码不包含模型原文或用户事实', () => {
   assert.equal(issues.every((code) => Object.values(FACT_BOUNDARY_CODES).includes(code)), true);
   assert.equal(issues.some((code) => code.includes('2026') || code.includes('提升协作')), false);
 });
+
+test('不把本周主动完成和周五前完成误判为人物', () => {
+  const source = {
+    goal: '本周主动完成一次跨部门风险同步，并在周五复盘。',
+  };
+
+  assert.deepEqual(findFactBoundaryIssues({
+    source,
+    generated: {
+      goal: '本周主动完成一次跨部门风险同步。',
+      will: '周五前完成首次同步并复盘。',
+    },
+  }), []);
+});
+
+test('GROW SBI 结构标签不改变已知事实的来源判断', () => {
+  assert.deepEqual(findFactBoundaryIssues({
+    source: { feedback: '员工在周五主动同步了风险。' },
+    generated: { behavior: 'Behavior（行为）：员工在周五主动同步了风险。' },
+  }), []);
+});

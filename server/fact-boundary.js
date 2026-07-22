@@ -9,13 +9,15 @@ const FACT_BOUNDARY_CODES = Object.freeze({
 const DATE_PATTERN = /(?:20\d{2}[年./-]\d{1,2}(?:[月./-]\d{1,2}日?)?|\d{1,2}月\d{1,2}日)/g;
 const NUMBER_PATTERN = /(?:\d+(?:\.\d+)?(?:%|次|天|周|月|年|小时|分钟|人|项|个|分|元|周期)|百分之[零一二两三四五六七八九十百千万]+|[零一二两三四五六七八九十百千万]+(?:次|天|周|月|年|小时|分钟|人|项|个|分|元|周期))/g;
 const SURNAME = '赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜谢邹苏潘葛范彭鲁韦马方任袁唐罗薛伍余姚孟顾尹江钟';
+const BARE_PERSON_SURNAME = SURNAME.replace('周', '');
 const PERSON_PATTERN = new RegExp(
-  `(?:[${SURNAME}][\\u4e00-\\u9fff]{0,2}(?:经理|主管|总监|先生|女士|老师)|[${SURNAME}][\\u4e00-\\u9fff]{1,2}(?=表示|指出|认为|负责|完成|导致))`,
+  `(?:[${SURNAME}][\\u4e00-\\u9fff]{0,2}(?:经理|主管|总监|先生|女士|老师)|(?:[${BARE_PERSON_SURNAME}][\\u4e00-\\u9fff]{1,2}|周(?!主动|[一二三四五六日末前后内])[\\u4e00-\\u9fff]{1,2})(?=表示|指出|认为|负责|完成|导致))`,
   'g',
 );
 const RESULT_PATTERN = /(?:已经|已)(?:[^。！？!?；;\r\n]{0,8})?(?:完成|提升|下降|改善|达成|解决|延期|延误)|(?:完成了|提升了|下降了|改善了|达成了|解决了|同步了|交付了|通过了|结果为|实际影响为)/;
 const CAUSALITY_PATTERN = /(?:导致|造成|使得|因此|所以|从而)/;
 const UNCERTAIN_PATTERN = /(?:可能|预计|假设|如果|若|建议|可以|可考虑|需补充|待确认|尚不确定|尚未确认)/;
+const STRUCTURED_LABEL_PATTERN = /^(?:Goal（目标）|Reality（现状）|Options（可选方案）|Will（行动承诺）|Situation（情境）|Behavior（行为）|Impact（影响）)[：:]\s*/;
 
 function collectStrings(value) {
   const values = [];
@@ -63,7 +65,7 @@ function findFactBoundaryIssues({ source, generated } = {}) {
   const unsupported = (pattern) => sentences.some((sentence) => (
     pattern.test(sentence)
     && !UNCERTAIN_PATTERN.test(sentence)
-    && !sourceText.includes(compact(sentence))
+    && !sourceText.includes(compact(sentence.replace(STRUCTURED_LABEL_PATTERN, '')))
   ));
 
   if (unsupported(RESULT_PATTERN)) issues.push(FACT_BOUNDARY_CODES.UNSUPPORTED_RESULT);
