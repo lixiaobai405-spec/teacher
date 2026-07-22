@@ -115,7 +115,7 @@ const PLAN_RETRY_GUIDANCE = Object.freeze({
 
 const FACT_RETRY_GUIDANCE = Object.freeze({
   [FACT_BOUNDARY_CODES.UNSUPPORTED_DATE]: '删除事实源中不存在的具体日期；如确需日期，明确要求用户补充。',
-  [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]: '删除事实源中不存在且未明确标注为建议或未来行动的具体数字、比例或数量。frequency 及明确的未来建议可以新增次数或时长，但不得将新增数字写成员工现状、既成结果或事实依据；比例、人数、金额、分数、事项数量和对象数量仍须有事实来源。',
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]: '删除事实源中不存在且未明确标注为建议或未来行动的具体数字、比例或数量。frequency、Goal（目标）、Options（可选方案）、Will（行动承诺）及明确的未来建议可以新增次数或时长；Reality（现状）和 SBI 事实段不得新增。不得将新增数字写成员工现状、既成结果或事实依据；比例、人数、金额、分数、事项数量和对象数量仍须有事实来源。把“一个动作”“两个方案”等无来源对象数量改为“明确动作”“比较可选方案”等无数字表达。',
   [FACT_BOUNDARY_CODES.UNSUPPORTED_PERSON]: '删除事实源中不存在的人名或带姓名的角色。',
   [FACT_BOUNDARY_CODES.UNSUPPORTED_RESULT]: '不得把未经确认的结果写成已完成或已发生；改为需补充或待确认。',
   [FACT_BOUNDARY_CODES.UNSUPPORTED_CAUSALITY]: '不得断言未经提供的因果关系；只能写可能性并标注待确认。',

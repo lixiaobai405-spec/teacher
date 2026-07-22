@@ -147,6 +147,53 @@ test('步骤 3 策略允许其他字段中明确建议的次数与时长', () =>
   }), []);
 });
 
+test('步骤 3 策略允许 GROW 未来阶段中的次数与时长', () => {
+  const scripts = [
+    'Goal（目标）：完成一次主动同步。',
+    'Options（可选方案）：每两周复盘一次。',
+    'Will（行动承诺）：用一个月持续跟进。',
+  ];
+
+  for (const script of scripts) {
+    assert.deepEqual(findFactBoundaryIssues({
+      source: { goal: '提升主动同步意愿。' },
+      generated: { scripts: [script] },
+      allowSuggestedTimeNumbers: true,
+    }), []);
+  }
+});
+
+test('步骤 3 策略继续拒绝 Reality 与 SBI 中的无来源时长', () => {
+  const scripts = [
+    'Reality（现状）：员工连续两周投入不足。',
+    'Situation（情境）：员工已持续一个月未主动同步。',
+    'Behavior（行为）：员工连续两次未同步风险。',
+    'Impact（影响）：项目延期三周。',
+  ];
+
+  for (const script of scripts) {
+    assert.deepEqual(findFactBoundaryIssues({
+      source: { goal: '提升主动同步意愿。' },
+      generated: { scripts: [script] },
+      allowSuggestedTimeNumbers: true,
+    }), [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]);
+  }
+});
+
+test('步骤 3 策略继续拒绝 GROW 未来阶段中的无来源对象数量', () => {
+  assert.deepEqual(findFactBoundaryIssues({
+    source: { goal: '提升主动同步意愿。' },
+    generated: {
+      scripts: [
+        'Goal（目标）：完成一个改进目标。',
+        'Options（可选方案）：比较两个可选动作。',
+        'Will（行动承诺）：落实三项行动。',
+      ],
+    },
+    allowSuggestedTimeNumbers: true,
+  }), [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]);
+});
+
 test('步骤 3 策略仍拒绝事实语句中的无来源时长', () => {
   assert.deepEqual(findFactBoundaryIssues({
     source: { goal: '提升主动同步意愿。' },
