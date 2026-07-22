@@ -5,9 +5,12 @@ const {
   validateModelClassification,
   validateClassification,
   validateNormalizedProfile,
-  validatePlan,
   validateFeedback,
 } = require('./contracts.js');
+const {
+  FACT_BOUNDARY_CODES,
+  findFactBoundaryIssues,
+} = require('./fact-boundary.js');
 const { findHighRiskIntent } = require('./guardrails.js');
 
 const INVALID_REQUEST = Object.freeze({
@@ -110,9 +113,47 @@ const PLAN_RETRY_GUIDANCE = Object.freeze({
   [PLAN_VALIDATION_CODES.PLACEHOLDER_CONTENT]: '删除所有占位内容，只能引用 normalized_profile 中的真实目标、行为、任务和时间；事实不足时明确说明需要补充。',
 });
 
+const FACT_RETRY_GUIDANCE = Object.freeze({
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_DATE]: '删除事实源中不存在的具体日期；如确需日期，明确要求用户补充。',
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_NUMBER]: '删除事实源中不存在的具体数字、比例或数量。',
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_PERSON]: '删除事实源中不存在的人名或带姓名的角色。',
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_RESULT]: '不得把未经确认的结果写成已完成或已发生；改为需补充或待确认。',
+  [FACT_BOUNDARY_CODES.UNSUPPORTED_CAUSALITY]: '不得断言未经提供的因果关系；只能写可能性并标注待确认。',
+});
+
+function buildFactBoundaryRetryMessage(issues) {
+  const guidance = [...new Set(issues)]
+    .map((code) => ({ code, guidance: FACT_RETRY_GUIDANCE[code] }))
+    .filter((item) => item.guidance);
+  if (guidance.length === 0) return '';
+  return [
+    'MODEL_FACT_BOUNDARY_REPAIR',
+    '上一输出包含未被当前会话事实支持的内容。请仅重新输出完整 JSON，不要解释。',
+    ...guidance.map(({ code, guidance: text }) => `- ${code}: ${text}`),
+    '- 不得复制上一输出中的无依据内容。',
+  ].join('\n');
+}
+
+function createFactAwareValidation({ baseValidate, source, selectGenerated }) {
+  const diagnose = (payload) => {
+    if (!baseValidate(payload)) return [];
+    return findFactBoundaryIssues({
+      source,
+      generated: selectGenerated(payload),
+    });
+  };
+  return {
+    diagnose,
+    validate: (payload) => baseValidate(payload) && diagnose(payload).length === 0,
+  };
+}
+
 function buildPlanRetryMessage(issues) {
   const guidance = [...new Set(issues)]
-    .map((code) => ({ code, guidance: PLAN_RETRY_GUIDANCE[code] }))
+    .map((code) => ({
+      code,
+      guidance: PLAN_RETRY_GUIDANCE[code] || FACT_RETRY_GUIDANCE[code],
+    }))
     .filter((item) => item.guidance);
 
   return [
@@ -161,10 +202,20 @@ function createCoachService({ promptLoader, client } = {}) {
       return INVALID_REQUEST;
     }
 
-    return completeStep(1, {
+    const payload = {
       intake: request.intake,
       answers: request.answers || {},
-    }, validateIntake, 0.25, 900);
+    };
+    const { validate, diagnose } = createFactAwareValidation({
+      baseValidate: validateIntake,
+      source: payload,
+      selectGenerated: (result) => result && result.normalized_profile,
+    });
+
+    return completeStep(1, payload, validate, 0.25, 900, {
+      diagnose,
+      buildRetryMessage: buildFactBoundaryRetryMessage,
+    });
   }
 
   async function classify(request) {
@@ -174,9 +225,21 @@ function createCoachService({ promptLoader, client } = {}) {
       return INVALID_REQUEST;
     }
 
-    const modelResult = await completeStep(2, {
+    const payload = {
       normalized_profile: request.normalizedProfile,
-    }, validateModelClassification, 0.25, 900);
+    };
+    const { validate, diagnose } = createFactAwareValidation({
+      baseValidate: validateModelClassification,
+      source: request.normalizedProfile,
+      selectGenerated: (result) => result && ({
+        reason: result.reason,
+        evidence: result.evidence,
+      }),
+    });
+    const modelResult = await completeStep(2, payload, validate, 0.25, 900, {
+      diagnose,
+      buildRetryMessage: buildFactBoundaryRetryMessage,
+    });
     const { confidence, ...classification } = modelResult;
     const applicationResult = {
       ...classification,
@@ -215,8 +278,17 @@ function createCoachService({ promptLoader, client } = {}) {
 
     const typeId = request.classification.type_id;
     const requiresSbi = ['B', 'D2'].includes(typeId);
-    const validate = (payload) => validatePlan(payload, { typeId });
-    const diagnose = (payload) => findPlanValidationIssues(payload, { typeId });
+    const source = {
+      normalizedProfile: request.normalizedProfile,
+      pain: request.pain,
+      classificationReason: request.classification.reason,
+      previousPlan: request.regenerate ? request.previousPlan : null,
+    };
+    const diagnose = (payload) => [
+      ...findPlanValidationIssues(payload, { typeId }),
+      ...findFactBoundaryIssues({ source, generated: payload }),
+    ];
+    const validate = (payload) => diagnose(payload).length === 0;
     const temperature = request.regenerate ? 0.45 : 0.3;
     const result = await completeStep(3, {
       classification_status: request.classification.status,
@@ -259,8 +331,14 @@ function createCoachService({ promptLoader, client } = {}) {
     }
 
     const requireSbi = request.feedbackText.trim().length > 0;
-    const validate = (payload) => validateFeedback(payload, {
-      requireSbi,
+    const { validate, diagnose } = createFactAwareValidation({
+      baseValidate: (payload) => validateFeedback(payload, { requireSbi }),
+      source: {
+        classificationReason: request.classification.reason,
+        planSummary: request.planSummary,
+        feedbackText: request.feedbackText,
+      },
+      selectGenerated: (payload) => payload,
     });
     const result = await completeStep(4, {
       type_id: request.classification.type_id,
@@ -270,7 +348,10 @@ function createCoachService({ promptLoader, client } = {}) {
       plan_summary: request.planSummary,
       feedback_text: request.feedbackText,
       requires_sbi: requireSbi,
-    }, validate, 0.55, 1000);
+    }, validate, 0.55, 1000, {
+      diagnose,
+      buildRetryMessage: buildFactBoundaryRetryMessage,
+    });
     const highRiskIntent = findHighRiskIntent(result);
 
     return highRiskIntent ? { blocked: true, ...highRiskIntent } : result;
