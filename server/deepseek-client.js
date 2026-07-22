@@ -1,4 +1,17 @@
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+const SAFE_DIAGNOSTIC_CODES = new Set([
+  'INVALID_SCHEMA',
+  'INVALID_GROW',
+  'MISSING_GAP_FIX_SBI',
+  'MISSING_SCRIPT_SBI',
+  'PLACEHOLDER_CONTENT',
+  'UNSUPPORTED_DATE',
+  'UNSUPPORTED_NUMBER',
+  'UNSUPPORTED_PERSON',
+  'UNSUPPORTED_RESULT',
+  'UNSUPPORTED_CAUSALITY',
+]);
+const SAFE_NUMBER_KIND_PATTERN = /^(?:arabic|chinese):(?:percent|次|天|周|月|年|小时|分钟|人|项|个|分|元|周期)$/;
 
 function controlledError(code) {
   const error = new Error(code);
@@ -16,7 +29,30 @@ function modelServiceUnavailable() {
   return controlledError('MODEL_SERVICE_UNAVAILABLE');
 }
 
-function createDeepSeekClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
+function safeDiagnosticCodes(issues) {
+  if (!Array.isArray(issues)) return [];
+  return [...new Set(issues.filter((code) => SAFE_DIAGNOSTIC_CODES.has(code)))];
+}
+
+function safeDiagnosticDetails(details) {
+  const numberKinds = Array.isArray(details?.numberKinds)
+    ? [...new Set(details.numberKinds
+      .filter((value) => typeof value === 'string' && SAFE_NUMBER_KIND_PATTERN.test(value)))]
+      .slice(0, 5)
+    : [];
+  return numberKinds.length > 0 ? { numberKinds } : {};
+}
+
+function reportValidationFailure(logger, attempt, issues, details = {}) {
+  if (!logger || typeof logger.warn !== 'function') return;
+  logger.warn('MODEL_RESPONSE_REJECTED', {
+    attempt: attempt + 1,
+    issues: issues.length > 0 ? issues : ['UNDIAGNOSED_MODEL_RESPONSE'],
+    ...safeDiagnosticDetails(details),
+  });
+}
+
+function createDeepSeekClient({ fetchImpl = globalThis.fetch, apiKey, logger } = {}) {
   if (typeof fetchImpl !== 'function') {
     throw controlledError('MODEL_SERVICE_UNAVAILABLE');
   }
@@ -24,6 +60,9 @@ function createDeepSeekClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
   async function complete({
     messages,
     validate,
+    diagnose,
+    diagnoseDetails,
+    buildRetryMessage,
     temperature = 0.2,
     maxTokens = 1200,
   } = {}) {
@@ -35,18 +74,19 @@ function createDeepSeekClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
       throw controlledError('MODEL_SERVICE_UNAVAILABLE');
     }
 
-    const requestBody = JSON.stringify({
-      model: 'deepseek-v4-pro',
-      stream: false,
-      temperature,
-      max_tokens: maxTokens,
-      thinking: { type: 'disabled' },
-      response_format: { type: 'json_object' },
-      messages,
-    });
-
+    let attemptMessages = messages;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
+        const requestBody = JSON.stringify({
+          model: 'deepseek-v4-pro',
+          stream: false,
+          temperature,
+          max_tokens: maxTokens,
+          thinking: { type: 'disabled' },
+          response_format: { type: 'json_object' },
+          messages: attemptMessages,
+        });
+
         const response = await fetchImpl(DEEPSEEK_URL, {
           method: 'POST',
           headers: {
@@ -82,6 +122,22 @@ function createDeepSeekClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
         }
 
         if (!validate(parsed)) {
+          const issues = safeDiagnosticCodes(
+            typeof diagnose === 'function' ? diagnose(parsed) : [],
+          );
+          const details = typeof diagnoseDetails === 'function'
+            ? diagnoseDetails(parsed)
+            : {};
+          reportValidationFailure(logger, attempt, issues, details);
+          if (attempt === 0 && typeof buildRetryMessage === 'function') {
+            const retryMessage = buildRetryMessage(issues);
+            if (typeof retryMessage === 'string' && retryMessage.trim() !== '') {
+              attemptMessages = [
+                ...messages,
+                { role: 'user', content: retryMessage },
+              ];
+            }
+          }
           throw invalidModelResponse();
         }
 

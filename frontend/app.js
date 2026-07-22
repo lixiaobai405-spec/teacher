@@ -1,5 +1,8 @@
 import {
+  clearDownstream,
   isCurrentEpoch,
+  markSubmission,
+  matchesSubmission,
   resetSession,
   session,
   setAnswers,
@@ -13,6 +16,9 @@ import {
   setIntakeResult,
   setPlan,
   setScreen,
+  setSelectedProfileId,
+  setSelectedTraits,
+  setTraitNote,
 } from './state.js';
 import {
   cancelPendingRequests,
@@ -23,6 +29,8 @@ import {
   submitFeedback,
 } from './api.js';
 import { renderApp } from './views.js';
+import { publicProfileId, resolveFinalClassification } from './profile-selection.js';
+import { BUSY_ACTIONS, waitForMinimumLoading } from './loading.js';
 
 const root = document.getElementById('app');
 const toastElement = document.getElementById('toast');
@@ -41,8 +49,34 @@ function returnHome() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function answersPayload() {
-  return Object.fromEntries(session.answers.map(({ question, answer }) => [question, answer]));
+const PREVIOUS_SCREEN = Object.freeze({
+  classification: ['intake', 1],
+  plan: ['classification', 2],
+  feedback: ['plan', 3],
+});
+
+function startCoaching() {
+  cancelPendingRequests();
+  setBusy(false);
+  setError(null);
+  setScreen('intake', 1);
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goPrevious() {
+  const target = PREVIOUS_SCREEN[session.screen];
+  if (!target) return;
+  cancelPendingRequests();
+  if (session.screen === 'feedback') {
+    const feedbackInput = document.getElementById('feedback-text');
+    if (feedbackInput) setFeedbackText(feedbackInput.value);
+  }
+  setBusy(false);
+  setError(null);
+  setScreen(target[0], target[1]);
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function planSummary() {
@@ -54,6 +88,15 @@ function planSummary() {
     ...(session.plan.gap_fix || []),
     ...(session.plan.scripts || []),
   ].join('\n');
+}
+
+async function requestWithLoading(action, request) {
+  const startedAt = performance.now();
+  setBusy(true, action);
+  render();
+  const result = await request();
+  await waitForMinimumLoading(startedAt);
+  return result;
 }
 
 function consume(result) {
@@ -73,21 +116,38 @@ function consume(result) {
   return result.data;
 }
 
-async function reviewIntake(values, answers = []) {
+async function reviewIntake(values, answers = session.answers) {
+  const payload = {
+    intake: values,
+    answers: Object.fromEntries(
+      answers.map(({ question, answer }) => [question, answer]),
+    ),
+  };
   setIntake(values);
   setAnswers(answers);
+  if (matchesSubmission('intake', payload) && session.intakeResult) {
+    setError(null);
+    setScreen(
+      session.intakeResult.sufficient ? 'classification' : 'intake',
+      session.intakeResult.sufficient ? 2 : 1,
+    );
+    render();
+    return;
+  }
+  clearDownstream('intake');
   setError(null);
-  setBusy(true);
-  render();
-  const result = await intake({ intake: values, answers: answersPayload() });
+  const result = await requestWithLoading(
+    BUSY_ACTIONS.INTAKE_REVIEW,
+    () => intake(payload),
+  );
   const data = consume(result);
   if (!data) return;
   if (data.high_risk_personnel_action || data.status === '高风险停止') {
     setBlocked({ code: 'HR_REVIEW_REQUIRED' });
     setScreen('blocked');
   } else {
+    markSubmission('intake', payload);
     setIntakeResult(data);
-    setClassification(null);
     setScreen(data.sufficient ? 'classification' : 'intake', data.sufficient ? 2 : 1);
   }
   render();
@@ -104,32 +164,80 @@ async function generateClassification() {
     render();
     return;
   }
+  const payload = { normalizedProfile };
+  if (!matchesSubmission('classification', payload)) {
+    clearDownstream('classification');
+  }
   setError(null);
-  setBusy(true);
-  render();
-  const result = await classify({ normalizedProfile });
+  const result = await requestWithLoading(
+    BUSY_ACTIONS.CLASSIFICATION_GENERATE,
+    () => classify(payload),
+  );
   const data = consume(result);
   if (!data) return;
+  markSubmission('classification', payload);
   setClassification(data);
+  setSelectedProfileId(data.status === '已判定' ? publicProfileId(data.type_id) : null);
   setScreen('classification', 2);
   render();
 }
 
+function selectProfile(profileId) {
+  if (!session.classification || session.classification.status !== '已判定') return;
+  if (session.selectedProfileId === profileId) return;
+  setSelectedProfileId(profileId);
+  clearDownstream('classification');
+  setError(null);
+  render();
+}
+
+function toggleTrait(trait) {
+  const selected = session.selectedTraits.includes(trait)
+    ? session.selectedTraits.filter((item) => item !== trait)
+    : [...session.selectedTraits, trait];
+  setSelectedTraits(selected);
+  return session.selectedTraits.includes(trait);
+}
+
+function updateTraitNote(value) {
+  setTraitNote(value);
+}
+
+function finalClassification() {
+  return resolveFinalClassification(
+    session.classification,
+    session.selectedProfileId || publicProfileId(session.classification?.type_id),
+    session.intake,
+  );
+}
+
 async function requestPlan(regenerate) {
   if (!session.classification || session.classification.status !== '已判定') return;
-  setError(null);
-  setBusy(true);
-  render();
-  const result = await generatePlan({
-    classification: session.classification,
+  const planInput = {
+    classification: finalClassification(),
     normalizedProfile: session.intakeResult && session.intakeResult.normalized_profile,
     pain: session.intake.pain || '',
-    regenerate,
-    previousPlan: regenerate ? session.plan : null,
-  });
+  };
+  if (!regenerate && session.plan && matchesSubmission('plan', planInput)) {
+    setError(null);
+    setScreen('plan', 3);
+    render();
+    return;
+  }
+  setError(null);
+  const result = await requestWithLoading(
+    regenerate ? BUSY_ACTIONS.PLAN_REGENERATE : BUSY_ACTIONS.PLAN_GENERATE,
+    () => generatePlan({
+      ...planInput,
+      regenerate,
+      previousPlan: regenerate ? session.plan : null,
+    }),
+  );
   const data = consume(result);
   if (!data) return;
+  clearDownstream('plan');
   setPlan(data);
+  markSubmission('plan', planInput);
   setScreen('plan', 3);
   render();
 }
@@ -137,13 +245,14 @@ async function requestPlan(regenerate) {
 async function generateFeedback(feedbackText) {
   setFeedbackText(feedbackText);
   setError(null);
-  setBusy(true);
-  render();
-  const result = await submitFeedback({
-    classification: session.classification,
-    planSummary: planSummary(),
-    feedbackText,
-  });
+  const result = await requestWithLoading(
+    BUSY_ACTIONS.FEEDBACK_GENERATE,
+    () => submitFeedback({
+      classification: finalClassification(),
+      planSummary: planSummary(),
+      feedbackText,
+    }),
+  );
   const data = consume(result);
   if (!data) return;
   setFeedback(data);
@@ -186,14 +295,19 @@ function continueSupplement() {
   const questions = session.classification && session.classification.questions;
   setIntakeResult({ ...session.intakeResult, questions: Array.isArray(questions) ? questions : [] });
   setClassification(null);
+  setSelectedProfileId(null);
   setScreen('intake', 1);
   render();
 }
 
 const handlers = {
+  startCoaching,
   reviewIntake,
   reviewAgain,
   generateClassification,
+  selectProfile,
+  toggleTrait,
+  updateTraitNote,
   generatePlan: () => requestPlan(false),
   regeneratePlan: () => requestPlan(true),
   generateFeedback,
@@ -206,6 +320,7 @@ const handlers = {
     render();
   },
   continueSupplement,
+  goPrevious,
   goHome: returnHome,
 };
 
