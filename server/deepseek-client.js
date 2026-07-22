@@ -12,6 +12,7 @@ const SAFE_DIAGNOSTIC_CODES = new Set([
   'UNSUPPORTED_CAUSALITY',
 ]);
 const SAFE_NUMBER_KIND_PATTERN = /^(?:arabic|chinese):(?:percent|次|天|周|月|年|小时|分钟|人|项|个|分|元|周期)$/;
+const SAFE_NUMBER_FIELD_PATTERN = /^(?:frequency|(?:entry|cautions|gap_fix|scripts)\[[0-9]\])$/;
 
 function controlledError(code) {
   const error = new Error(code);
@@ -40,7 +41,24 @@ function safeDiagnosticDetails(details) {
       .filter((value) => typeof value === 'string' && SAFE_NUMBER_KIND_PATTERN.test(value)))]
       .slice(0, 5)
     : [];
-  return numberKinds.length > 0 ? { numberKinds } : {};
+  const numberLocations = Array.isArray(details?.numberLocations)
+    ? [...new Map(details.numberLocations
+      .filter((value) => (
+        value
+        && typeof value === 'object'
+        && typeof value.field === 'string'
+        && SAFE_NUMBER_FIELD_PATTERN.test(value.field)
+        && typeof value.kind === 'string'
+        && SAFE_NUMBER_KIND_PATTERN.test(value.kind)
+      ))
+      .map(({ field, kind }) => [`${field}\u0000${kind}`, { field, kind }]))
+      .values()]
+      .slice(0, 10)
+    : [];
+  return {
+    ...(numberKinds.length > 0 ? { numberKinds } : {}),
+    ...(numberLocations.length > 0 ? { numberLocations } : {}),
+  };
 }
 
 function reportValidationFailure(logger, attempt, issues, details = {}) {

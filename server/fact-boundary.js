@@ -131,6 +131,14 @@ function describeNumberKind(token) {
   return unit ? `${style}:${unit}` : null;
 }
 
+function describeFieldPath(path) {
+  return path.map((segment, index) => (
+    typeof segment === 'number'
+      ? `[${segment}]`
+      : `${index === 0 ? '' : '.'}${segment}`
+  )).join('');
+}
+
 function isSuggestedNumberContext(sentence, tokenIndex) {
   const prefix = sentence.slice(0, tokenIndex);
   let markerIndex = -1;
@@ -155,6 +163,7 @@ function findMissingNumbers(sourceText, generated, allowSuggestedTimeNumbers) {
     (sourceText.match(NUMBER_PATTERN) || []).map(normalizeNumberToken),
   );
   const missingNumbers = [];
+  const seenMissingNumbers = new Set();
 
   for (const entry of collectStringEntries(generated)) {
     const isFrequency = entry.path[0] === 'frequency';
@@ -171,7 +180,12 @@ function findMissingNumbers(sourceText, generated, allowSuggestedTimeNumbers) {
           continue;
         }
 
-        if (!missingNumbers.includes(token)) missingNumbers.push(token);
+        const field = describeFieldPath(entry.path);
+        const key = `${field}\u0000${token}`;
+        if (!seenMissingNumbers.has(key)) {
+          seenMissingNumbers.add(key);
+          missingNumbers.push({ field, token });
+        }
       }
     }
   }
@@ -225,7 +239,15 @@ function findFactBoundaryDiagnostics({
   }
   return {
     issues,
-    numberKinds: [...new Set(missingNumbers.map(describeNumberKind).filter(Boolean))].slice(0, 5),
+    numberKinds: [...new Set(
+      missingNumbers.map(({ token }) => describeNumberKind(token)).filter(Boolean),
+    )].slice(0, 5),
+    numberLocations: [...new Map(missingNumbers
+      .map(({ field, token }) => ({ field, kind: describeNumberKind(token) }))
+      .filter(({ field, kind }) => field && kind)
+      .map((location) => [`${location.field}\u0000${location.kind}`, location]))
+      .values()]
+      .slice(0, 10),
   };
 }
 

@@ -136,7 +136,9 @@ function buildFactBoundaryRetryMessage(issues) {
 
 function createFactAwareValidation({ baseValidate, source, selectGenerated }) {
   const inspect = (payload) => {
-    if (!baseValidate(payload)) return { issues: [], numberKinds: [] };
+    if (!baseValidate(payload)) {
+      return { issues: [], numberKinds: [], numberLocations: [] };
+    }
     return findFactBoundaryDiagnostics({
       source,
       generated: selectGenerated(payload),
@@ -146,7 +148,13 @@ function createFactAwareValidation({ baseValidate, source, selectGenerated }) {
 
   return {
     diagnose,
-    diagnoseDetails: (payload) => ({ numberKinds: inspect(payload).numberKinds }),
+    diagnoseDetails: (payload) => {
+      const diagnostics = inspect(payload);
+      return {
+        numberKinds: diagnostics.numberKinds,
+        numberLocations: diagnostics.numberLocations,
+      };
+    },
     validate: (payload) => baseValidate(payload) && diagnose(payload).length === 0,
   };
 }
@@ -301,12 +309,17 @@ function createCoachService({ promptLoader, client } = {}) {
           ...factDiagnostics.issues,
         ],
         numberKinds: factDiagnostics.numberKinds,
+        numberLocations: factDiagnostics.numberLocations,
       };
     };
     const diagnose = (payload) => inspectPlan(payload).issues;
-    const diagnoseDetails = (payload) => ({
-      numberKinds: inspectPlan(payload).numberKinds,
-    });
+    const diagnoseDetails = (payload) => {
+      const diagnostics = inspectPlan(payload);
+      return {
+        numberKinds: diagnostics.numberKinds,
+        numberLocations: diagnostics.numberLocations,
+      };
+    };
     const validate = (payload) => diagnose(payload).length === 0;
     const temperature = request.regenerate ? 0.45 : 0.3;
     const result = await completeStep(3, {
