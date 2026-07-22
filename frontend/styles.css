@@ -320,19 +320,6 @@
   background: transparent;
 }
 
-.classification-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin-bottom: 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.classification-meta-item strong {
-  color: var(--ink);
-}
-
 .classification-reasoning p {
   margin: 0;
 }

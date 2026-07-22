@@ -676,21 +676,6 @@ function renderClassification(root, state, handlers) {
   }
 
   const details = node('section', { className: 'rcard classification-details' });
-  const meta = node('div', { className: 'classification-meta' });
-  const rows = [
-    [CLASSIFICATION_LABELS.status, finalClassification.status],
-    [CLASSIFICATION_LABELS.classification_confidence, classification.classification_confidence],
-    [CLASSIFICATION_LABELS.ability, finalClassification.ability],
-    [CLASSIFICATION_LABELS.will, finalClassification.will],
-    [CLASSIFICATION_LABELS.strategy, finalClassification.strategy],
-    [CLASSIFICATION_LABELS.coach_mode, finalClassification.coach_mode],
-  ];
-  rows.forEach(([label, value]) => {
-    const row = node('span', { className: 'classification-meta-item' });
-    row.append(node('strong', { text: `${label}：` }), document.createTextNode(value || '未提供'));
-    meta.append(row);
-  });
-  details.append(meta);
   const reasoning = node('div', { className: 'reasoning classification-reasoning' });
   reasoning.append(
     node('h3', { className: 'rcard-h classification-reason-title', text: CLASSIFICATION_LABELS.reason }),
