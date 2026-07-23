@@ -9,3 +9,5 @@ data/
 *.sqlite-wal
 *.sqlite-shm
 *.sqlite-journal
+*.log
+logs/

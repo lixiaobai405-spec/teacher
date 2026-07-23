@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node --env-file=.env server/index.js",
     "start": "node server/index.js",
+    "migrate": "node scripts/migrate.js",
     "test:server": "node --test",
     "test:e2e": "playwright test",
     "test": "npm run test:server && npm run test:e2e"

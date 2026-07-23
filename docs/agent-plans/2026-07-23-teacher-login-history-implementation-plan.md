@@ -1184,7 +1184,7 @@ git commit -m "fix: hide duplicate SBI in plan scripts"
 - Modify: `docs/adversarial-review.md`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写运维与文档 RED**
+- [x] **Step 1: 写运维与文档 RED**
 
 测试 `npm run migrate` 成功创建结构、坏配置返回非零；文档必须包含认证接口、历史接口、Anaconda 环境、HTTP 风险、数据库位置和部署提醒：
 
@@ -1195,13 +1195,13 @@ assert.match(readme, /SESSION_COOKIE_SECURE=false/);
 assert.match(readme, /\/opt\/apps\/teacher-data\/teacher\.sqlite/);
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.operations.test.js
 ```
 
-- [ ] **Step 3: 实现迁移命令**
+- [x] **Step 3: 实现迁移命令**
 
 `scripts/migrate.js` 只加载配置、打开数据库触发迁移、关闭数据库并输出不含路径或密钥的成功标记。新增：
 
@@ -1209,7 +1209,7 @@ assert.match(readme, /\/opt\/apps\/teacher-data\/teacher\.sqlite/);
 "migrate": "node scripts/migrate.js"
 ```
 
-- [ ] **Step 4: 更新文档**
+- [x] **Step 4: 更新文档**
 
 README 明确：
 
@@ -1221,7 +1221,7 @@ README 明确：
 - `SESSION_SECRET` 必须为服务器独立生成的 48 字节以上随机值。
 - 数据库、WAL/SHM、日志和密钥不得提交。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.operations.test.js tests/start-script.test.js
