@@ -120,11 +120,11 @@ Expected: no tracked runtime changes and no diff output.
 - Modify: none
 - Temporary output: `%TEMP%\teacher-preboundary-baseline.stdout.log`, `%TEMP%\teacher-preboundary-baseline.stderr.log`
 
-- [ ] **Step 1: Obtain explicit approval for one paid local model workflow**
+- [x] **Step 1: Obtain explicit approval for one paid local model workflow**
 
 Expected: the user explicitly approves one `intake -> classify -> plan` workflow. Do not start the server before approval.
 
-- [ ] **Step 2: Confirm port 4186 is free**
+- [x] **Step 2: Confirm port 4186 is free**
 
 ```powershell
 $listener = Get-NetTCPConnection -LocalPort 4186 -State Listen -ErrorAction SilentlyContinue
@@ -136,7 +136,7 @@ if ($listener) {
 
 Expected: no listener and no exception.
 
-- [ ] **Step 3: Start the baseline service without reading or copying `.env`**
+- [x] **Step 3: Start the baseline service without reading or copying `.env`**
 
 ```powershell
 $worktree = 'D:\codex-pj\teacher-preboundary-frontend'
@@ -170,7 +170,7 @@ Write-Output "baseline_pid=$($baselineProcess.Id)"
 
 Expected: a process ID is printed. No secret value is printed.
 
-- [ ] **Step 4: Poll health and open the local page**
+- [x] **Step 4: Poll health and open the local page**
 
 ```powershell
 $ready = $false
@@ -194,6 +194,8 @@ Expected: `baseline_ready=True` and the browser opens the local application.
 
 - [ ] **Step 5: Execute exactly one fixed representative workflow**
 
+2026-07-23 execution note: the user explicitly replaced the fixed values below with the first B-class scenario in `D:\codex-pj\teacher\docs\测试文档.md`. The submitted `intake` request returned HTTP 200, but the first and only `classify` request returned HTTP 503 with `SERVICE_UNAVAILABLE`; no retry and no `plan` request were made. Read-only diagnostics confirmed that the API key authenticates, the account reports available balance, and `deepseek-v4-pro` appears in the available model list. The application currently collapses every non-2xx upstream response into `MODEL_SERVICE_UNAVAILABLE`, so the exact upstream status cannot be recovered from this attempt.
+
 Use these non-sensitive values:
 
 ```text
@@ -210,7 +212,7 @@ Complete `员工信息输入 -> 类型判定 -> 教练方案生成` once. Do not
 
 Expected: `intake`, `classify`, and `plan` each return HTTP 200, and the third step renders a coaching plan without `INVALID_MODEL_RESPONSE`.
 
-- [ ] **Step 6: Stop the baseline process and preserve only safe diagnostics**
+- [x] **Step 6: Stop the baseline process and preserve only safe diagnostics**
 
 ```powershell
 if ($baselineProcess -and -not $baselineProcess.HasExited) {
