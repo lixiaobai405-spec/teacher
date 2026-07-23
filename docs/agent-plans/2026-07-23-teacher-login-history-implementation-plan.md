@@ -356,7 +356,7 @@ git commit -m "feat: add user repository"
 - Create: `tests/server.recovery-code.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写密码与恢复码 RED**
+- [x] **Step 1: 写密码与恢复码 RED**
 
 密码断言：
 
@@ -378,13 +378,13 @@ assert.equal(verifyRecoveryCode(code, stored), true);
 assert.equal(verifyRecoveryCode(code.replace(/[0-9A-F]/, '0'), stored), false);
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.password.test.js tests/server.recovery-code.test.js
 ```
 
-- [ ] **Step 3: 实现固定密码格式与并发限制**
+- [x] **Step 3: 实现固定密码格式与并发限制**
 
 ```js
 const SCRYPT_OPTIONS = Object.freeze({
@@ -402,11 +402,11 @@ scrypt$v=1$N=32768$r=8$p=3$<salt-base64url>$<hash-base64url>
 
 最多同时执行 2 个 scrypt；比较使用相同长度 Buffer 的 `timingSafeEqual()`。
 
-- [ ] **Step 4: 实现恢复码**
+- [x] **Step 4: 实现恢复码**
 
 恢复码使用 24 个随机字节；明文只在注册、重置或轮换成功响应的局部变量中存在。数据库只保存 SHA-256 base64url 哈希。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.password.test.js tests/server.recovery-code.test.js
