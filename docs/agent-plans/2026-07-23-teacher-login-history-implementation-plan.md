@@ -427,7 +427,7 @@ git commit -m "feat: add password recovery primitives"
 - Create: `tests/server.session-store.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写 Session RED**
+- [x] **Step 1: 写 Session RED**
 
 覆盖 32 字节随机 Session ID、数据库只存哈希、`set/get/touch/destroy`、固定 7 天到期、过期读取删除和按用户撤销全部 Session：
 
@@ -442,13 +442,13 @@ assert.notEqual(row.token_hash, rawSessionId);
 assert.equal(row.token_hash, hashToken(rawSessionId));
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.session-store.test.js
 ```
 
-- [ ] **Step 3: 实现 Repository**
+- [x] **Step 3: 实现 Repository**
 
 固定接口：
 
@@ -463,11 +463,11 @@ repository.pruneExpired();
 
 `touch()` 只更新 `last_seen_at`，不延长 `expires_at`。
 
-- [ ] **Step 4: 实现 `express-session` Store**
+- [x] **Step 4: 实现 `express-session` Store**
 
 Store 继承 `session.Store`，只实现 `get`、`set`、`touch`、`destroy`。`get` 仅重建 `{ userId, cookie }`，不把数据库哈希返回浏览器。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.session-store.test.js
