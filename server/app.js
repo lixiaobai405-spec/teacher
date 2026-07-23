@@ -63,7 +63,19 @@ function sendBlocked(response) {
   response.json({ ok: true, blocked: true, ...HR_REVIEW_RESPONSE });
 }
 
-function createApp({ coachService } = {}) {
+function createApp({ coachService, authBoundary } = {}) {
+  if (
+    !authBoundary
+    || typeof authBoundary.sessionMiddleware !== 'function'
+    || typeof authBoundary.router !== 'function'
+    || typeof authBoundary.requireAuth !== 'function'
+    || typeof authBoundary.requireSameOrigin !== 'function'
+    || typeof authBoundary.requireSessionCsrf !== 'function'
+  ) {
+    throw Object.assign(new Error('A complete authBoundary is required.'), {
+      code: 'CONFIG_INVALID',
+    });
+  }
   const app = express();
 
   app.use('/api', (request, response, next) => {
@@ -75,6 +87,8 @@ function createApp({ coachService } = {}) {
   app.get('/api/health', (request, response) => {
     response.json({ ok: true });
   });
+  app.use('/api', authBoundary.sessionMiddleware);
+  app.use('/api/auth', authBoundary.router);
 
   for (const method of ['intake', 'classify', 'plan', 'feedback']) {
     app.post(`/api/coach/${method}`, async (request, response) => {
@@ -129,6 +143,22 @@ function createApp({ coachService } = {}) {
 
     if (error.type === 'entity.too.large') {
       sendError(response, 413, 'REQUEST_TOO_LARGE');
+      return;
+    }
+
+    if (
+      error.expose === true
+      && Number.isInteger(error.status)
+      && error.status >= 400
+      && error.status <= 499
+      && typeof error.code === 'string'
+      && typeof error.message === 'string'
+    ) {
+      response.status(error.status).json({
+        ok: false,
+        code: error.code,
+        message: error.message,
+      });
       return;
     }
 

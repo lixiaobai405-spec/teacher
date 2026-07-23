@@ -560,7 +560,7 @@ git commit -m "feat: enforce authentication security"
 - Modify: `playwright.config.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写认证 API RED**
+- [x] **Step 1: 写认证 API RED**
 
 覆盖：
 
@@ -586,13 +586,13 @@ assert.match(login.headers.get('set-cookie'), /Max-Age=604800/i);
 assert.doesNotMatch(login.headers.get('set-cookie'), /Secure/i);
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.auth-api.test.js tests/server.routes.test.js
 ```
 
-- [ ] **Step 3: 实现认证服务**
+- [x] **Step 3: 实现认证服务**
 
 固定接口：
 
@@ -607,7 +607,7 @@ authService.login({ username, password });
 {"ok":false,"code":"AUTH_INVALID_CREDENTIALS","message":"用户名或密码不正确。"}
 ```
 
-- [ ] **Step 4: 组装运行时与路由**
+- [x] **Step 4: 组装运行时与路由**
 
 Session 配置：
 
@@ -632,7 +632,7 @@ Session 配置：
 
 `GET /api/health` 保持公开。生产入口必须完整创建 `runtime`；测试通过显式 `createTestAuthBoundary()` 注入，不增加生产绕过开关。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.auth-api.test.js tests/server.routes.test.js

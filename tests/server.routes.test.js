@@ -19,6 +19,7 @@ const {
   resolvePort,
   startServer: startHttpServer,
 } = require('../server/index.js');
+const { createTestAuthBoundary } = require('./helpers/test-auth-boundary.js');
 
 const INVALID_REQUEST_FOR_TEST = {
   ok: false,
@@ -27,7 +28,10 @@ const INVALID_REQUEST_FOR_TEST = {
 };
 
 async function startServer(options) {
-  const server = http.createServer(createApp(options));
+  const server = http.createServer(createApp({
+    ...options,
+    authBoundary: options?.authBoundary || createTestAuthBoundary(),
+  }));
 
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -55,7 +59,7 @@ async function withServer(callback, options) {
 }
 
 async function withFrontendServer(callback) {
-  const server = createServer();
+  const server = createServer({ authBoundary: createTestAuthBoundary() });
 
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -73,7 +77,10 @@ async function withFrontendServer(callback) {
 }
 
 async function withDefaultCoachServer(callback, options) {
-  const server = createServer(options);
+  const server = createServer({
+    ...options,
+    authBoundary: options?.authBoundary || createTestAuthBoundary(),
+  });
 
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -351,7 +358,7 @@ test('同源进程仅让 HTML 响应不可缓存', async () => {
 });
 
 test('入口允许 port:0 测试启动，并拒绝无效端口', async () => {
-  const server = startHttpServer({ port: 0 });
+  const server = startHttpServer({ port: 0, authBoundary: createTestAuthBoundary() });
 
   try {
     await new Promise((resolve, reject) => {
@@ -373,7 +380,7 @@ test('入口允许 port:0 测试启动，并拒绝无效端口', async () => {
     (error) => error.code === 'INVALID_PORT' && error.message === 'INVALID_PORT',
   );
   assert.throws(
-    () => startHttpServer({ port: 65_536 }),
+    () => startHttpServer({ port: 65_536, authBoundary: createTestAuthBoundary() }),
     (error) => error.code === 'INVALID_PORT' && error.message === 'INVALID_PORT',
   );
 });

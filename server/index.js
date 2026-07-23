@@ -3,9 +3,11 @@ const path = require('node:path');
 const express = require('express');
 
 const { createApp } = require('./app.js');
+const { loadConfig } = require('./config.js');
 const { createCoachService } = require('./coach-service.js');
 const { createDeepSeekClient } = require('./deepseek-client.js');
 const { createPromptLoader } = require('./prompt-loader.js');
+const { createRuntime } = require('./runtime.js');
 
 function invalidPortError() {
   const error = new Error('INVALID_PORT');
@@ -42,9 +44,10 @@ function createDefaultCoachService({ fetchImpl } = {}) {
   return createCoachService({ promptLoader, client });
 }
 
-function createServer({ coachService, fetchImpl } = {}) {
+function createServer({ coachService, fetchImpl, authBoundary } = {}) {
   const app = createApp({
     coachService: coachService || createDefaultCoachService({ fetchImpl }),
+    authBoundary,
   });
   const frontendDir = path.join(__dirname, '..', 'frontend');
 
@@ -62,21 +65,31 @@ function createServer({ coachService, fetchImpl } = {}) {
   return http.createServer(app);
 }
 
-function startServer({ port = 4173, coachService, fetchImpl } = {}) {
+function startServer({ port = 4173, coachService, fetchImpl, authBoundary } = {}) {
   const listenPort = resolveListenPort(port);
-  const server = createServer({ coachService, fetchImpl });
+  const server = createServer({ coachService, fetchImpl, authBoundary });
 
   return server.listen(listenPort, '127.0.0.1');
 }
 
-function startFromEnvironment() {
+async function startFromEnvironment() {
+  let runtime;
   try {
-    const server = startServer({ port: resolvePort(process.env.PORT) });
+    const config = loadConfig(process.env);
+    runtime = await createRuntime(config);
+    const server = startServer({
+      port: resolvePort(process.env.PORT),
+      authBoundary: runtime.authBoundary,
+    });
     server.once('error', () => {
       process.stderr.write('SERVER_START_FAILED\n');
       process.exitCode = 1;
     });
+    server.once('close', () => {
+      runtime.close().catch(() => undefined);
+    });
   } catch (error) {
+    if (runtime) await runtime.close().catch(() => undefined);
     process.stderr.write(`${error.code === 'INVALID_PORT' ? 'INVALID_PORT' : 'SERVER_START_FAILED'}\n`);
     process.exitCode = 1;
   }
