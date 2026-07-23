@@ -768,7 +768,7 @@ git commit -m "feat: protect coaching APIs"
 - Create: `tests/server.history-repository.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写历史契约 RED**
+- [x] **Step 1: 写历史契约 RED**
 
 请求快照固定为：
 
@@ -787,7 +787,7 @@ git commit -m "feat: protect coaching APIs"
 
 `classification`、`plan`、非空 `feedback` 必须复用 `server/contracts.js` 的验证函数；拒绝额外的 `userId`、`user_id`、标题、Cookie、Prompt 和调试字段。
 
-- [ ] **Step 2: 写 Repository RED**
+- [x] **Step 2: 写 Repository RED**
 
 覆盖首次保存、同一 `(userId, clientRecordId)` 更新原记录、游标分页、详情、删除、A/B 用户隔离和损坏 JSON 安全失败。标题由服务端生成，并固定使用服务器约定的上海时区：
 
@@ -798,13 +798,13 @@ const date = new Intl.DateTimeFormat('zh-CN', {
 const title = `${snapshot.intake.role} · ${date}`;
 ```
 
-- [ ] **Step 3: 运行 RED**
+- [x] **Step 3: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.history-contracts.test.js tests/server.history-repository.test.js
 ```
 
-- [ ] **Step 4: 实现严格验证、游标和所有权 SQL**
+- [x] **Step 4: 实现严格验证、游标和所有权 SQL**
 
 所有操作必须先验证 `userId`。更新 SQL 必须同时限定：
 
@@ -814,7 +814,7 @@ WHERE user_id = ? AND client_record_id = ?
 
 列表默认 20、最大 50，排序为 `created_at DESC, id DESC`，游标编码 `{createdAt,id}`。`POST` 重试允许更新方案和反馈，但不得更改所有者、创建时间或记录 ID。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.history-contracts.test.js tests/server.history-repository.test.js
