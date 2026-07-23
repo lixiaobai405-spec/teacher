@@ -907,7 +907,7 @@ git commit -m "feat: add coaching history APIs"
 - Modify: `playwright.config.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写 Playwright 认证 RED**
+- [x] **Step 1: 写 Playwright 认证 RED**
 
 覆盖启动检查、注册、一次性恢复码、登录、刷新恢复、退出和恢复码重置。断言密码、恢复码和 CSRF 不进入 URL、`localStorage`、`sessionStorage` 或隐藏字段。
 
@@ -925,13 +925,13 @@ env: {
 }
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/auth-history.spec.js --grep "注册|登录|刷新|退出|找回"
 ```
 
-- [ ] **Step 3: 实现 API 与状态**
+- [x] **Step 3: 实现 API 与状态**
 
 状态增加：
 
@@ -949,7 +949,7 @@ clientRecordId: null,
 
 `tests/frontend.spec.js` 的既有 77 项场景通过统一 helper 显式 mock 已登录的 `/api/auth/me` 与 CSRF，不在生产代码增加绕过开关；`tests/auth-history.spec.js` 使用真实认证 API 和 `:memory:` SQLite。
 
-- [ ] **Step 4: 实现纯 DOM 认证页面**
+- [x] **Step 4: 实现纯 DOM 认证页面**
 
 `auth-ui.js` 导出：
 
@@ -963,7 +963,7 @@ renderRecoveryCode(recoveryCode);
 
 所有用户和错误文本使用 `textContent`。登录后首页显示当前用户名、“开始辅导”“历史记录”“退出登录”，并提示自由文本不得填写真实姓名、工号或联系方式。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/auth-history.spec.js --grep "注册|登录|刷新|退出|找回"

@@ -444,6 +444,10 @@ function renderHome(root, state, handlers) {
       text: '描述一位待辅导员工，AI 按“能力 × 意愿”匹配 4 类画像，输出差异化的沟通与教练方案：说什么、注意什么、多久沟通一次、如何修正绩效差距。',
     }),
     card,
+    node('p', {
+      className: 'privacy-hint',
+      text: '隐私提示：自由文本中请勿填写员工真实姓名、工号、手机号或邮箱。',
+    }),
   );
   root.replaceChildren(section);
 }

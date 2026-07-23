@@ -19,15 +19,30 @@ import {
   setSelectedProfileId,
   setSelectedTraits,
   setTraitNote,
+  updateSession,
 } from './state.js';
 import {
   cancelPendingRequests,
   classify,
   generatePlan,
+  getCurrentUser,
+  getPreAuthCsrf,
   intake,
+  loginAccount,
+  logoutAccount,
+  registerAccount,
   resetApiState,
+  resetPasswordWithRecovery,
+  setSessionCsrfToken,
   submitFeedback,
 } from './api.js';
+import {
+  renderBoot,
+  renderLogin,
+  renderRecovery,
+  renderRecoveryCode,
+  renderRegister,
+} from './auth-ui.js';
 import { renderApp } from './views.js';
 import { publicProfileId, resolveFinalClassification } from './profile-selection.js';
 import { BUSY_ACTIONS, waitForMinimumLoading } from './loading.js';
@@ -43,6 +58,11 @@ function toast(message) {
 }
 
 function returnHome() {
+  if (!session.user) {
+    if (session.authReady) setScreen('login');
+    render();
+    return;
+  }
   resetApiState();
   resetSession();
   render();
@@ -56,6 +76,7 @@ const PREVIOUS_SCREEN = Object.freeze({
 });
 
 function startCoaching() {
+  if (!session.user) return;
   cancelPendingRequests();
   setBusy(false);
   setError(null);
@@ -300,6 +321,192 @@ function continueSupplement() {
   render();
 }
 
+function authErrorMessage(result) {
+  return result?.message || '请求未完成，请稍后重试。';
+}
+
+function setFormPending(form, pending) {
+  for (const control of form.elements) control.disabled = pending;
+}
+
+async function ensurePreAuthCsrf() {
+  if (session.preAuthCsrfToken) return session.preAuthCsrfToken;
+  const result = await getPreAuthCsrf();
+  if (!result.ok || typeof result.data?.csrfToken !== 'string') return null;
+  updateSession({ preAuthCsrfToken: result.data.csrfToken });
+  return result.data.csrfToken;
+}
+
+function showAuthScreen(screen) {
+  updateSession({
+    screen,
+    authError: null,
+    recoveryCode: screen === 'recovery-code' ? session.recoveryCode : null,
+  });
+  render();
+}
+
+async function submitLogin(form) {
+  const error = form.querySelector('.auth-error');
+  const values = new FormData(form);
+  error.textContent = '';
+  setFormPending(form, true);
+  const csrfToken = await ensurePreAuthCsrf();
+  const result = csrfToken
+    ? await loginAccount(values.get('username'), values.get('password'), csrfToken)
+    : { ok: false, message: '无法建立安全登录会话，请刷新后重试。' };
+  if (!result.ok) {
+    error.textContent = authErrorMessage(result);
+    setFormPending(form, false);
+    return;
+  }
+
+  const me = await getCurrentUser();
+  if (!me.ok || !me.data?.user || typeof me.data?.csrfToken !== 'string') {
+    error.textContent = authErrorMessage(me);
+    setFormPending(form, false);
+    return;
+  }
+  updateSession({
+    authReady: true,
+    user: me.data.user,
+    csrfToken: me.data.csrfToken,
+    authError: null,
+  });
+  setSessionCsrfToken(me.data.csrfToken);
+  resetSession();
+  render();
+}
+
+async function submitRegistration(form) {
+  const error = form.querySelector('.auth-error');
+  const values = new FormData(form);
+  if (values.get('password') !== values.get('passwordConfirm')) {
+    error.textContent = '两次输入的密码不一致。';
+    return;
+  }
+  error.textContent = '';
+  setFormPending(form, true);
+  const csrfToken = await ensurePreAuthCsrf();
+  const result = csrfToken
+    ? await registerAccount(values.get('username'), values.get('password'), csrfToken)
+    : { ok: false, message: '无法建立安全注册会话，请刷新后重试。' };
+  if (!result.ok || typeof result.data?.recoveryCode !== 'string') {
+    error.textContent = authErrorMessage(result);
+    setFormPending(form, false);
+    return;
+  }
+  updateSession({
+    recoveryCode: result.data.recoveryCode,
+    screen: 'recovery-code',
+    authError: null,
+  });
+  render();
+}
+
+async function submitRecovery(form) {
+  const error = form.querySelector('.auth-error');
+  const values = new FormData(form);
+  if (values.get('newPassword') !== values.get('newPasswordConfirm')) {
+    error.textContent = '两次输入的密码不一致。';
+    return;
+  }
+  error.textContent = '';
+  setFormPending(form, true);
+  const csrfToken = await ensurePreAuthCsrf();
+  const result = csrfToken
+    ? await resetPasswordWithRecovery(
+      values.get('username'),
+      values.get('recoveryCode'),
+      values.get('newPassword'),
+      csrfToken,
+    )
+    : { ok: false, message: '无法建立安全找回会话，请刷新后重试。' };
+  if (!result.ok || typeof result.data?.recoveryCode !== 'string') {
+    error.textContent = authErrorMessage(result);
+    setFormPending(form, false);
+    return;
+  }
+  updateSession({
+    recoveryCode: result.data.recoveryCode,
+    screen: 'recovery-code',
+    authError: null,
+  });
+  render();
+}
+
+function bindAuthUi() {
+  root.querySelector('[data-action="show-register"]')
+    ?.addEventListener('click', () => showAuthScreen('register'));
+  root.querySelector('[data-action="show-recovery"]')
+    ?.addEventListener('click', () => showAuthScreen('recovery'));
+  root.querySelector('[data-action="show-login"]')
+    ?.addEventListener('click', () => showAuthScreen('login'));
+  root.querySelector('[data-action="confirm-recovery-code"]')
+    ?.addEventListener('click', () => {
+      updateSession({ recoveryCode: null, screen: 'login' });
+      render();
+    });
+
+  const form = root.querySelector('[data-auth-form]');
+  if (!form) return;
+  form.querySelector('.auth-error').textContent = session.authError || '';
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (form.dataset.authForm === 'login') submitLogin(form);
+    else if (form.dataset.authForm === 'register') submitRegistration(form);
+    else if (form.dataset.authForm === 'recovery') submitRecovery(form);
+  });
+}
+
+async function bootstrapAuthentication() {
+  const me = await getCurrentUser();
+  if (me.ok && me.data?.user && typeof me.data?.csrfToken === 'string') {
+    updateSession({
+      authReady: true,
+      user: me.data.user,
+      csrfToken: me.data.csrfToken,
+      preAuthCsrfToken: null,
+      screen: 'home',
+      authError: null,
+    });
+    setSessionCsrfToken(me.data.csrfToken);
+    render();
+    return;
+  }
+
+  setSessionCsrfToken(null);
+  const csrf = await getPreAuthCsrf();
+  updateSession({
+    authReady: true,
+    user: null,
+    csrfToken: null,
+    preAuthCsrfToken: csrf.ok ? csrf.data?.csrfToken || null : null,
+    screen: 'login',
+    authError: csrf.ok ? null : authErrorMessage(csrf),
+  });
+  render();
+}
+
+async function logout() {
+  const result = await logoutAccount(session.csrfToken);
+  if (!result.ok && result.status !== 401) {
+    toast(authErrorMessage(result));
+    return;
+  }
+  setSessionCsrfToken(null);
+  updateSession({
+    authReady: false,
+    user: null,
+    csrfToken: null,
+    preAuthCsrfToken: null,
+    screen: 'boot',
+  });
+  resetSession();
+  render();
+  await bootstrapAuthentication();
+}
+
 const handlers = {
   startCoaching,
   reviewIntake,
@@ -325,10 +532,41 @@ const handlers = {
 };
 
 function render() {
+  const workflowScreens = new Set(['intake', 'classification', 'plan', 'feedback', 'blocked']);
+  const topReturn = document.getElementById('top-return-home');
+  const authActions = document.getElementById('auth-actions');
+  const authUser = document.getElementById('auth-user');
+  const badge = document.querySelector('.badge-top');
+  topReturn.hidden = !session.user || !workflowScreens.has(session.screen);
+  authActions.hidden = !session.user;
+  authUser.textContent = session.user ? `当前用户：${session.user.username}` : '';
+  badge.hidden = Boolean(session.user);
+
+  const authRenderers = {
+    boot: renderBoot,
+    login: renderLogin,
+    register: renderRegister,
+    recovery: renderRecovery,
+  };
+  if (authRenderers[session.screen]) {
+    root.replaceChildren(authRenderers[session.screen]());
+    bindAuthUi();
+    return;
+  }
+  if (session.screen === 'recovery-code') {
+    root.replaceChildren(renderRecoveryCode(session.recoveryCode || ''));
+    bindAuthUi();
+    return;
+  }
   renderApp(root, session, handlers);
 }
 
 document.getElementById('home-brand').addEventListener('click', returnHome);
 document.getElementById('top-return-home').addEventListener('click', returnHome);
+document.getElementById('auth-history').addEventListener('click', () => {
+  toast('历史记录入口已就绪，页面将在下一阶段接入。');
+});
+document.getElementById('auth-logout').addEventListener('click', logout);
 window.addEventListener('beforeunload', cancelPendingRequests);
 render();
+bootstrapAuthentication();

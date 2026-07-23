@@ -1,12 +1,24 @@
 const SESSION_KEYS = new Set([
+  'authReady', 'user', 'csrfToken', 'preAuthCsrfToken', 'recoveryCode', 'authError',
   'screen', 'step', 'busy', 'busyAction', 'intake', 'answers', 'intakeResult',
   'classification', 'plan', 'feedback', 'feedbackText', 'blocked', 'error',
   'submissionKeys', 'selectedProfileId', 'selectedTraits', 'traitNote',
 ]);
 
-export function createInitialState() {
+export function createInitialState({
+  authReady = false,
+  user = null,
+  csrfToken = null,
+  preAuthCsrfToken = null,
+} = {}) {
   return {
-    screen: 'home',
+    authReady,
+    user,
+    csrfToken,
+    preAuthCsrfToken,
+    recoveryCode: null,
+    authError: null,
+    screen: authReady ? (user ? 'home' : 'login') : 'boot',
     step: 1,
     busy: false,
     busyAction: null,
@@ -182,6 +194,11 @@ export function clearDownstream(stage) {
 
 export function resetSession() {
   const nextEpoch = invalidateRequestEpoch();
-  Object.assign(session, createInitialState(), { requestEpoch: nextEpoch });
+  Object.assign(session, createInitialState({
+    authReady: session.authReady,
+    user: session.user,
+    csrfToken: session.csrfToken,
+    preAuthCsrfToken: session.preAuthCsrfToken,
+  }), { requestEpoch: nextEpoch });
   return nextEpoch;
 }

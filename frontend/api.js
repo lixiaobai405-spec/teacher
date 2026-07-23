@@ -7,6 +7,88 @@ export function setSessionCsrfToken(token) {
   sessionCsrfToken = typeof token === 'string' && token ? token : null;
 }
 
+async function requestJson(path, {
+  method = 'GET',
+  body,
+  csrfToken,
+} = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+  try {
+    const response = await fetch(path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    const payload = response.status === 204
+      ? null
+      : await response.json().catch(() => null);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        code: payload?.code || 'REQUEST_FAILED',
+        message: payload?.message || '请求未完成，请稍后重试。',
+      };
+    }
+    return { ok: true, status: response.status, data: payload };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message: '网络连接异常，请稍后重试。',
+    };
+  }
+}
+
+export function getCurrentUser() {
+  return requestJson('/api/auth/me');
+}
+
+export function getPreAuthCsrf() {
+  return requestJson('/api/auth/csrf');
+}
+
+export function registerAccount(username, password, csrfToken) {
+  return requestJson('/api/auth/register', {
+    method: 'POST',
+    csrfToken,
+    body: { username, password },
+  });
+}
+
+export function loginAccount(username, password, csrfToken) {
+  return requestJson('/api/auth/login', {
+    method: 'POST',
+    csrfToken,
+    body: { username, password },
+  });
+}
+
+export function logoutAccount(csrfToken) {
+  return requestJson('/api/auth/logout', {
+    method: 'POST',
+    csrfToken,
+  });
+}
+
+export function resetPasswordWithRecovery(
+  username,
+  recoveryCode,
+  newPassword,
+  csrfToken,
+) {
+  return requestJson('/api/auth/password/reset-with-recovery', {
+    method: 'POST',
+    csrfToken,
+    body: { username, recoveryCode, newPassword },
+  });
+}
+
 export function cancelPendingRequests({ invalidate = true } = {}) {
   if (invalidate) invalidateRequestEpoch();
   if (pendingController) {

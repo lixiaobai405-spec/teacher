@@ -7,6 +7,20 @@ const {
   nextPlan,
 } = require('./fixtures/coach-responses.js');
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/me', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      user: {
+        id: '00000000-0000-4000-8000-000000000000',
+        username: 'Frontend_Test_User',
+      },
+      csrfToken: 'frontend-test-session-csrf-token',
+    }),
+  }));
+});
+
 async function mockCoachApi(page, fixtures = defaultFixtures()) {
   const requests = [];
   await page.route('**/api/coach/**', async (route) => {
@@ -1003,10 +1017,12 @@ test('工作区返回首页后迟到请求不会恢复旧会话', async ({ page 
   await expect(page.locator('.panel-h')).toHaveText('员工信息输入');
 });
 
-test('窄屏下顶部返回首页持续可见且不造成横向溢出', async ({ page }) => {
+test('窄屏首页隐藏顶部返回按钮且进入工作区后持续可见无横向溢出', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto('/');
 
+  await expect(page.locator('#top-return-home')).toBeHidden();
+  await page.getByRole('button', { name: '开始辅导' }).click();
   await expect(page.locator('#top-return-home')).toBeVisible();
   await expect(page.locator('.badge-top')).toBeHidden();
   const viewport = await page.evaluate(() => ({
