@@ -988,7 +988,7 @@ git commit -m "feat: add authentication user interface"
 - Modify: `tests/frontend.spec.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写历史 Playwright RED**
+- [x] **Step 1: 写历史 Playwright RED**
 
 覆盖：
 
@@ -1000,13 +1000,13 @@ git commit -m "feat: add authentication user interface"
 
 保存失败时方案仍显示，并出现“结果已生成，历史保存失败”的可重试提示。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/auth-history.spec.js --grep "历史|自动保存|用户隔离|删除"
 ```
 
-- [ ] **Step 3: 实现历史状态与快照**
+- [x] **Step 3: 实现历史状态与快照**
 
 状态固定为：
 
@@ -1035,11 +1035,11 @@ await saveHistory({
 
 开始填写员工信息、修改画像、修改反馈草稿或下游结果被清除时，将 `workflowDirty` 设为 `true`；历史同步成功后设为 `false`。同步失败保持 `true`。
 
-- [ ] **Step 4: 实现历史 UI**
+- [x] **Step 4: 实现历史 UI**
 
 `history-ui.js` 导出列表和详情渲染。列表只显示标题和时间；详情使用现有安全 Markdown renderer 渲染方案/反馈，原子字段使用 `textContent`。复制只复制方案正文；删除调用 `window.confirm()` 后发送 DELETE。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/auth-history.spec.js --grep "历史|自动保存|用户隔离|删除"

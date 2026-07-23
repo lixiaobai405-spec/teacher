@@ -130,6 +130,27 @@ function appendError(target, error) {
   target.append(node('div', { className: 'reasoning', text: error }));
 }
 
+function appendHistorySyncStatus(target, state, handlers) {
+  const messages = {
+    saving: '正在保存历史…',
+    saved: '历史已保存',
+    failed: state.historySync.message || '结果已生成，历史保存失败。',
+  };
+  const message = messages[state.historySync?.status];
+  if (!message) return;
+  const status = node('div', {
+    className: `history-sync-status ${state.historySync.status}`,
+  });
+  status.setAttribute('role', 'status');
+  status.append(node('span', { text: message }));
+  if (state.historySync.status === 'failed') {
+    status.append(button('retry-history-save', '重试保存', handlers.retryHistorySave, {
+      secondary: true,
+    }));
+  }
+  target.append(status);
+}
+
 function appendQuestions(target, questions) {
   if (!Array.isArray(questions) || questions.length === 0) return;
   const list = node('ul', { className: 'rlist' });
@@ -769,6 +790,7 @@ function renderPlan(root, state, handlers) {
     separateCoachingStages: true,
   });
   body.append(report);
+  appendHistorySyncStatus(body, state, handlers);
   appendError(body, state.error);
   const footer = createPanelFooter();
   appendPreviousButton(footer, handlers);
@@ -795,10 +817,14 @@ function renderFeedback(root, state, handlers) {
     'feedback',
     '节点 ④ · 会话内迭代',
     '辅导反馈',
-    '回填本次沟通后的情况，AI 基于记录给出下一步调整建议。记录仅在本次会话内留存。',
+    '回填本次沟通后的情况，AI 基于记录给出下一步调整建议，并同步到当前账号的历史记录。',
     handlers,
   );
-  body.append(textAreaField('feedback-text', '本次沟通后的情况', state.feedbackText || '', '例：按赋权式沟通谈了一次，他愿意主动接一个模块，但仍担心做不好。'));
+  const feedbackField = textAreaField('feedback-text', '本次沟通后的情况', state.feedbackText || '', '例：按赋权式沟通谈了一次，他愿意主动接一个模块，但仍担心做不好。');
+  feedbackField.querySelector('textarea').addEventListener('input', (event) => {
+    handlers.updateFeedbackDraft(event.target.value);
+  });
+  body.append(feedbackField);
   const generate = button('generate-feedback', state.busy ? '正在生成…' : '生成下一步建议', () => {
     handlers.generateFeedback(document.getElementById('feedback-text').value.trim());
   }, { accent: true, disabled: state.busy });
@@ -816,6 +842,7 @@ function renderFeedback(root, state, handlers) {
     output = node('div', { className: 'feedback-output', id: 'followout' });
   }
   body.append(output);
+  appendHistorySyncStatus(body, state, handlers);
 
   const finalClassification = resolveFinalClassification(
     state.classification,

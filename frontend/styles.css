@@ -188,6 +188,146 @@
   to { transform: rotate(360deg); }
 }
 
+.history-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--purple-tint);
+  color: var(--purple-700);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.history-sync-status.failed {
+  justify-content: space-between;
+  background: #fff0ef;
+  color: #923d37;
+}
+
+.history-sync-status .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.history-page {
+  display: grid;
+  gap: 20px;
+}
+
+.history-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.history-title {
+  margin: 8px 0 3px;
+  font-size: 28px;
+  line-height: 1.35;
+}
+
+.history-lead,
+.history-item-time {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.history-head-actions,
+.history-item-actions,
+.history-detail-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item,
+.history-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.history-item-copy {
+  min-width: 0;
+}
+
+.history-item-title,
+.history-section-title,
+.history-group-title {
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+
+.history-item-title {
+  font-size: 16px;
+}
+
+.history-section-title,
+.history-group-title {
+  font-size: 15px;
+}
+
+.history-empty,
+.history-error {
+  margin: 0;
+  padding: 28px;
+  border: 1px dashed var(--line2);
+  border-radius: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.history-error {
+  color: #923d37;
+}
+
+.history-load-more {
+  justify-self: center;
+}
+
+.history-detail,
+.history-plan,
+.history-feedback {
+  min-width: 0;
+}
+
+.history-plan,
+.history-feedback {
+  display: grid;
+  gap: 12px;
+}
+
+.history-meta p,
+.history-feedback-text {
+  margin: 5px 0;
+  color: #4A4152;
+  overflow-wrap: anywhere;
+}
+
+.history-detail-actions {
+  justify-content: flex-end;
+}
+
 @media (max-width: 820px) {
   .auth-user {
     display: none;
@@ -196,6 +336,17 @@
   .auth-card {
     margin-top: 10px;
     padding: 22px 18px;
+  }
+
+  .history-page-head,
+  .history-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .history-item-actions .btn,
+  .history-head-actions .btn {
+    flex: 1;
   }
 }
 

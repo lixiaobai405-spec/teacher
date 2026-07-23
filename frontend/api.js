@@ -89,6 +89,31 @@ export function resetPasswordWithRecovery(
   });
 }
 
+export function saveHistory(snapshot) {
+  return requestJson('/api/history', {
+    method: 'POST',
+    csrfToken: sessionCsrfToken,
+    body: snapshot,
+  });
+}
+
+export function listHistory({ cursor, limit = 20 } = {}) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) query.set('cursor', cursor);
+  return requestJson(`/api/history?${query}`);
+}
+
+export function getHistoryDetail(id) {
+  return requestJson(`/api/history/${encodeURIComponent(id)}`);
+}
+
+export function deleteHistory(id) {
+  return requestJson(`/api/history/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    csrfToken: sessionCsrfToken,
+  });
+}
+
 export function cancelPendingRequests({ invalidate = true } = {}) {
   if (invalidate) invalidateRequestEpoch();
   if (pendingController) {

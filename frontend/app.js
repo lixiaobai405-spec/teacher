@@ -24,15 +24,19 @@ import {
 import {
   cancelPendingRequests,
   classify,
+  deleteHistory as deleteHistoryRequest,
   generatePlan,
   getCurrentUser,
+  getHistoryDetail,
   getPreAuthCsrf,
   intake,
+  listHistory,
   loginAccount,
   logoutAccount,
   registerAccount,
   resetApiState,
   resetPasswordWithRecovery,
+  saveHistory,
   setSessionCsrfToken,
   submitFeedback,
 } from './api.js';
@@ -43,12 +47,15 @@ import {
   renderRecoveryCode,
   renderRegister,
 } from './auth-ui.js';
+import { renderHistoryDetail, renderHistoryList } from './history-ui.js';
 import { renderApp } from './views.js';
 import { publicProfileId, resolveFinalClassification } from './profile-selection.js';
 import { BUSY_ACTIONS, waitForMinimumLoading } from './loading.js';
 
 const root = document.getElementById('app');
 const toastElement = document.getElementById('toast');
+let historySyncQueue = Promise.resolve();
+let historySyncVersion = 0;
 
 function toast(message) {
   toastElement.textContent = message;
@@ -78,6 +85,7 @@ const PREVIOUS_SCREEN = Object.freeze({
 function startCoaching() {
   if (!session.user) return;
   cancelPendingRequests();
+  updateSession({ workflowDirty: true });
   setBusy(false);
   setError(null);
   setScreen('intake', 1);
@@ -146,6 +154,7 @@ async function reviewIntake(values, answers = session.answers) {
   };
   setIntake(values);
   setAnswers(answers);
+  updateSession({ workflowDirty: true });
   if (matchesSubmission('intake', payload) && session.intakeResult) {
     setError(null);
     setScreen(
@@ -207,6 +216,7 @@ function selectProfile(profileId) {
   if (!session.classification || session.classification.status !== '已判定') return;
   if (session.selectedProfileId === profileId) return;
   setSelectedProfileId(profileId);
+  updateSession({ workflowDirty: true });
   clearDownstream('classification');
   setError(null);
   render();
@@ -217,11 +227,13 @@ function toggleTrait(trait) {
     ? session.selectedTraits.filter((item) => item !== trait)
     : [...session.selectedTraits, trait];
   setSelectedTraits(selected);
+  updateSession({ workflowDirty: true });
   return session.selectedTraits.includes(trait);
 }
 
 function updateTraitNote(value) {
   setTraitNote(value);
+  updateSession({ workflowDirty: true });
 }
 
 function finalClassification() {
@@ -261,10 +273,12 @@ async function requestPlan(regenerate) {
   markSubmission('plan', planInput);
   setScreen('plan', 3);
   render();
+  queueHistorySync();
 }
 
 async function generateFeedback(feedbackText) {
   setFeedbackText(feedbackText);
+  updateSession({ workflowDirty: true });
   setError(null);
   const result = await requestWithLoading(
     BUSY_ACTIONS.FEEDBACK_GENERATE,
@@ -279,6 +293,7 @@ async function generateFeedback(feedbackText) {
   setFeedback(data);
   setScreen('feedback', 4);
   render();
+  queueHistorySync();
 }
 
 async function copyPlan() {
@@ -507,6 +522,148 @@ async function logout() {
   await bootstrapAuthentication();
 }
 
+function buildHistorySnapshot() {
+  if (!session.plan || !session.classification || !session.selectedProfileId) return null;
+  return {
+    clientRecordId: session.clientRecordId,
+    intake: { ...session.intake },
+    answers: session.answers.map(({ question, answer }) => ({ question, answer })),
+    selectedProfileId: session.selectedProfileId,
+    classification: finalClassification(),
+    plan: session.plan,
+    feedbackText: session.feedback ? session.feedbackText : null,
+    feedback: session.feedback,
+  };
+}
+
+function queueHistorySync() {
+  const snapshot = buildHistorySnapshot();
+  if (!snapshot) return;
+  const version = ++historySyncVersion;
+  updateSession({
+    historySync: {
+      status: 'saving',
+      id: session.historySync.id,
+      message: '正在保存历史…',
+    },
+    workflowDirty: true,
+  });
+  render();
+
+  const pending = historySyncQueue.then(() => saveHistory(snapshot));
+  historySyncQueue = pending.then(() => undefined, () => undefined);
+  pending.then((result) => {
+    if (version !== historySyncVersion || snapshot.clientRecordId !== session.clientRecordId) {
+      return;
+    }
+    const item = result.ok ? result.data?.data : null;
+    if (item?.id) {
+      updateSession({
+        historySync: { status: 'saved', id: item.id, message: '历史已保存' },
+        workflowDirty: false,
+      });
+    } else {
+      updateSession({
+        historySync: {
+          status: 'failed',
+          id: session.historySync.id,
+          message: '结果已生成，历史保存失败，请重试。',
+        },
+        workflowDirty: true,
+      });
+    }
+    render();
+  });
+}
+
+async function loadHistory({ append = false } = {}) {
+  const cursor = append ? session.historyCursor : null;
+  if (!append) {
+    updateSession({
+      screen: 'history',
+      historyItems: [],
+      historyCursor: null,
+      historyDetail: null,
+      historySync: { ...session.historySync, status: 'loading', message: '' },
+    });
+    render();
+  }
+  const result = await listHistory({ cursor });
+  const page = result.ok ? result.data?.data : null;
+  if (!page || !Array.isArray(page.items)) {
+    updateSession({
+      historySync: {
+        ...session.historySync,
+        status: 'list-error',
+        message: authErrorMessage(result),
+      },
+    });
+    render();
+    return;
+  }
+  updateSession({
+    historyItems: append ? [...session.historyItems, ...page.items] : page.items,
+    historyCursor: page.nextCursor || null,
+    historySync: {
+      ...session.historySync,
+      status: session.historySync.id ? 'saved' : 'idle',
+      message: '',
+    },
+  });
+  render();
+}
+
+function openHistory() {
+  loadHistory();
+}
+
+async function openHistoryDetail(id) {
+  updateSession({ screen: 'history-detail', historyDetail: null });
+  render();
+  const result = await getHistoryDetail(id);
+  const item = result.ok ? result.data?.data : null;
+  if (!item) {
+    toast(authErrorMessage(result));
+    await loadHistory();
+    return;
+  }
+  updateSession({ historyDetail: item });
+  render();
+}
+
+async function deleteHistoryRecord(id) {
+  if (!window.confirm('确定删除这条历史记录吗？')) return;
+  const result = await deleteHistoryRequest(id);
+  if (!result.ok) {
+    toast(authErrorMessage(result));
+    return;
+  }
+  const deletedCurrent = session.historyDetail?.id === id;
+  updateSession({
+    historyItems: session.historyItems.filter((item) => item.id !== id),
+    historyDetail: deletedCurrent ? null : session.historyDetail,
+    historySync: session.historySync.id === id
+      ? { status: 'idle', id: null, message: '' }
+      : session.historySync,
+  });
+  if (deletedCurrent) {
+    await loadHistory();
+  } else {
+    render();
+  }
+}
+
+async function copyHistoryPlan() {
+  const target = root.querySelector('.history-plan');
+  if (!target) return;
+  try {
+    await navigator.clipboard.writeText(target.innerText.trim());
+    toast('已复制方案');
+  } catch {
+    toast('复制失败，请手动选择内容');
+  }
+}
+
 const handlers = {
   startCoaching,
   reviewIntake,
@@ -527,8 +684,22 @@ const handlers = {
     render();
   },
   continueSupplement,
+  retryHistorySave: queueHistorySync,
+  updateFeedbackDraft: (value) => {
+    setFeedbackText(value);
+    updateSession({ workflowDirty: true });
+  },
   goPrevious,
   goHome: returnHome,
+};
+
+const historyHandlers = {
+  copyHistoryPlan,
+  deleteHistoryRecord,
+  goHome: returnHome,
+  loadMoreHistory: () => loadHistory({ append: true }),
+  openHistory,
+  openHistoryDetail,
 };
 
 function render() {
@@ -558,14 +729,20 @@ function render() {
     bindAuthUi();
     return;
   }
+  if (session.screen === 'history') {
+    root.replaceChildren(renderHistoryList(session, historyHandlers));
+    return;
+  }
+  if (session.screen === 'history-detail') {
+    root.replaceChildren(renderHistoryDetail(session, historyHandlers));
+    return;
+  }
   renderApp(root, session, handlers);
 }
 
 document.getElementById('home-brand').addEventListener('click', returnHome);
 document.getElementById('top-return-home').addEventListener('click', returnHome);
-document.getElementById('auth-history').addEventListener('click', () => {
-  toast('历史记录入口已就绪，页面将在下一阶段接入。');
-});
+document.getElementById('auth-history').addEventListener('click', openHistory);
 document.getElementById('auth-logout').addEventListener('click', logout);
 window.addEventListener('beforeunload', cancelPendingRequests);
 render();
