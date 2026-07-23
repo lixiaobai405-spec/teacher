@@ -88,7 +88,7 @@ Expected: dependency tree is valid, tracked files are unchanged, and `git diff -
 - Modify: none
 - Test: `tests/server.*.test.js`, `tests/start-script.test.js`, `tests/frontend.spec.js`
 
-- [ ] **Step 1: Run server and launcher tests**
+- [x] **Step 1: Run server and launcher tests**
 
 ```powershell
 npm.cmd run test:server
@@ -96,7 +96,7 @@ npm.cmd run test:server
 
 Expected: all tests pass and the command exits 0. If Windows launcher tests expose an occupied port, identify the listener before taking any action; do not kill an unrelated process.
 
-- [ ] **Step 2: Run Playwright tests**
+- [x] **Step 2: Run Playwright tests**
 
 ```powershell
 npm.cmd run test:e2e
@@ -104,7 +104,7 @@ npm.cmd run test:e2e
 
 Expected: all Playwright tests pass and the command exits 0.
 
-- [ ] **Step 3: Recheck tracked cleanliness**
+- [x] **Step 3: Recheck tracked cleanliness**
 
 ```powershell
 git status --short --branch
