@@ -94,6 +94,7 @@ function createWorkspace(t, {
   withNodeModules = false,
   withServer = false,
   port = 4173,
+  environmentOverrides = {},
 } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'coach-start-script-'));
   const scriptsDir = path.join(root, 'scripts');
@@ -110,7 +111,20 @@ function createWorkspace(t, {
   }
 
   if (withEnv) {
-    writeFileSync(path.join(root, '.env'), `DEEPSEEK_API_KEY=not-real\nPORT=${port}\n`, 'utf8');
+    const environment = {
+      DEEPSEEK_API_KEY: 'not-real',
+      PORT: String(port),
+      DATABASE_PATH: './data/teacher.sqlite',
+      SESSION_SECRET: 'fake-session-secret-change-me-48-bytes-minimum-000000',
+      SESSION_COOKIE_SECURE: 'false',
+      SESSION_MAX_AGE_MS: '604800000',
+      ...environmentOverrides,
+    };
+    writeFileSync(
+      path.join(root, '.env'),
+      `${Object.entries(environment).map(([key, value]) => `${key}=${value}`).join('\n')}\n`,
+      'utf8',
+    );
   }
   if (withNodeModules) {
     mkdirSync(path.join(root, 'node_modules'));
@@ -227,6 +241,31 @@ test('CheckOnly 在前置条件满足时不启动服务', async (t) => {
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /环境检查通过/);
+});
+
+test('认证或数据库配置无效时只返回安全提示', async (t) => {
+  const port = await getAvailablePort();
+  const markers = [
+    ['SESSION_SECRET', 'too-short-secret'],
+    ['SESSION_COOKIE_SECURE', 'sometimes'],
+    ['SESSION_MAX_AGE_MS', '3600000'],
+    ['DATABASE_PATH', ''],
+  ];
+
+  for (const [key, value] of markers) {
+    const root = createWorkspace(t, {
+      withEnv: true,
+      withNodeModules: true,
+      port,
+      environmentOverrides: { [key]: value },
+    });
+    const result = runStartScript(root, ['-CheckOnly', '-NoBrowser']);
+
+    assert.equal(result.error, undefined);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /认证或数据库配置无效/);
+    assert.doesNotMatch(result.stdout, /too-short-secret|SESSION_SECRET=|DATABASE_PATH=/);
+  }
 });
 
 test('根目录批处理入口会转发参数并复用 PowerShell 启动脚本', async (t) => {

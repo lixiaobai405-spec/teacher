@@ -31,6 +31,25 @@ function Get-ServicePort {
   return $parsedPort
 }
 
+function Test-AuthenticationConfiguration {
+  $validationScript = @'
+const databasePath = String(process.env.DATABASE_PATH || '').trim();
+const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
+const sessionCookieSecure = String(process.env.SESSION_COOKIE_SECURE || '').trim().toLowerCase();
+const sessionMaxAgeMs = String(process.env.SESSION_MAX_AGE_MS || '').trim();
+const valid = Boolean(databasePath)
+  && Buffer.byteLength(sessionSecret, 'utf8') >= 48
+  && ['true', 'false'].includes(sessionCookieSecure)
+  && sessionMaxAgeMs === '604800000';
+process.exit(valid ? 0 : 1);
+'@
+
+  & $nodeCommand.Source '--env-file=.env' '-e' $validationScript
+  if ($LASTEXITCODE -ne 0) {
+    Stop-WithMessage '认证或数据库配置无效，请检查 .env.example 中的必填项。'
+  }
+}
+
 function Test-PortInUse {
   param([int]$Port)
 
@@ -73,6 +92,7 @@ try {
     Stop-WithMessage '缺少 node_modules。请先运行 npm.cmd install 安装依赖。'
   }
 
+  Test-AuthenticationConfiguration
   $servicePort = Get-ServicePort
   $serviceUrl = "http://127.0.0.1:$servicePort/"
   $healthUrl = "${serviceUrl}api/health"
