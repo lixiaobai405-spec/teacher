@@ -53,7 +53,7 @@ git diff --cached --check
 - Modify: `package-lock.json`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 先忽略项目环境和数据库产物**
+- [x] **Step 1: 先忽略项目环境和数据库产物**
 
 向 `.gitignore` 追加：
 
@@ -75,7 +75,7 @@ git check-ignore .conda\placeholder data\teacher.sqlite
 
 Expected: 两个路径都被 `.gitignore` 命中。
 
-- [ ] **Step 2: 创建项目专用 Anaconda 环境**
+- [x] **Step 2: 创建项目专用 Anaconda 环境**
 
 该步骤会联网下载 Node.js；执行前向用户说明影响。运行：
 
@@ -90,7 +90,7 @@ $env:PATH = "$projectNodeBin;$env:PATH"
 
 Expected: Node 主版本为 20；依赖只安装到当前 worktree 的 `node_modules`。
 
-- [ ] **Step 3: 写依赖 RED 测试**
+- [x] **Step 3: 写依赖 RED 测试**
 
 创建 `tests/server.dependency-compatibility.test.js`：
 
@@ -114,7 +114,7 @@ test('认证与 SQLite 依赖支持 Node 20 CommonJS', () => {
 
 Expected: RED，`MODULE_NOT_FOUND` 指向尚未安装的认证依赖。
 
-- [ ] **Step 4: 安装与参考项目一致的精确版本**
+- [x] **Step 4: 安装与参考项目一致的精确版本**
 
 ```powershell
 & "$projectNodeBin\npm.cmd" install --save-exact express-session@1.19.0 sqlite3@6.0.1 express-rate-limit@8.6.0
@@ -123,7 +123,7 @@ Expected: RED，`MODULE_NOT_FOUND` 指向尚未安装的认证依赖。
 
 Expected: GREEN；`package.json` 与 `package-lock.json` 同步更新。
 
-- [ ] **Step 5: 运行基线并提交**
+- [x] **Step 5: 运行基线并提交**
 
 ```powershell
 & "$projectNodeBin\npm.cmd" test

@@ -2,3 +2,10 @@ node_modules/
 test-results/
 playwright-report/
 .env
+.conda/
+.conda-pkgs/
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
