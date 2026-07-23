@@ -489,7 +489,7 @@ git commit -m "feat: add SQLite session store"
 - Create: `tests/server.auth-security.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写安全 RED**
+- [x] **Step 1: 写安全 RED**
 
 覆盖预登录 Token 的 HMAC、10 分钟到期、篡改拒绝；登录后 Token 与 Session ID 绑定；缺少/错误 `Origin` 或 `X-CSRF-Token` 返回 403；注册 5 次、登录 10 次、重置 5 次后返回 429。
 
@@ -501,13 +501,13 @@ function httpProblem(code, message, status) {
 }
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.auth-security.test.js
 ```
 
-- [ ] **Step 3: 实现同源与 CSRF**
+- [x] **Step 3: 实现同源与 CSRF**
 
 预登录 Token：
 
@@ -523,7 +523,7 @@ createHmac('sha256', secret).update(`csrf:${sessionId}`, 'utf8').digest('base64u
 
 数据库只保存 Session CSRF Token 的 SHA-256 哈希。
 
-- [ ] **Step 4: 实现限流**
+- [x] **Step 4: 实现限流**
 
 15 分钟窗口，键为规范化 IP 与区分大小写的用户名组合；响应：
 
@@ -531,7 +531,7 @@ createHmac('sha256', secret).update(`csrf:${sessionId}`, 'utf8').digest('base64u
 {"ok":false,"code":"AUTH_RATE_LIMITED","message":"尝试过于频繁，请稍后再试。"}
 ```
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.auth-security.test.js
