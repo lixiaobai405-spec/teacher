@@ -1191,15 +1191,66 @@ test('换个角度会用 regenerate=true 请求新的方案', async ({ page }) =
   expect(planRequests[1].body.normalizedProfile).toEqual(normalizedProfile);
 });
 
-test('方案页可见完整 GROW 与 B 类型的 SBI 标签', async ({ page }) => {
+test('方案页话术显示完整 GROW 且绩效差距显示 B 类型 SBI 标签', async ({ page }) => {
   await advanceToPlan(page);
 
   for (const label of ['Goal（目标）', 'Reality（现状）', 'Options（可选方案）', 'Will（行动承诺）']) {
     await expect(page.locator('#plan-scripts')).toContainText(label);
   }
   for (const label of ['Situation（情境）', 'Behavior（行为）', 'Impact（影响）']) {
-    await expect(page.locator('#coach-plan')).toContainText(label);
+    await expect(page.locator('#plan-gap-fix')).toContainText(label);
   }
+});
+
+test('话术示例隐藏重复 SBI 且绩效差距模块保留完整 SBI', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  let savedSnapshot;
+  await page.route('**/api/history', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    savedSnapshot = route.request().postDataJSON();
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { id: '10000000-0000-4000-8000-000000000001' },
+      }),
+    });
+  });
+  await advanceToPlan(page);
+  const scripts = page.locator('#plan-scripts');
+  const gapFix = page.locator('#plan-gap-fix');
+
+  for (const label of ['Goal（目标）', 'Reality（现状）', 'Options（可选方案）', 'Will（行动承诺）']) {
+    await expect(scripts).toContainText(label);
+  }
+  for (const hidden of [
+    'Situation（情境）',
+    'Behavior（行为）',
+    'Impact（影响）',
+    '上周项目评审',
+    '你在提醒后才同步风险',
+    '团队只能临时调整资源',
+  ]) {
+    await expect(scripts).not.toContainText(hidden);
+  }
+  for (const retained of [
+    'Situation（情境）',
+    'Behavior（行为）',
+    'Impact（影响）',
+    '周一项目例会',
+    '你在会前主动同步风险',
+    '团队提前协调了资源',
+  ]) {
+    await expect(gapFix).toContainText(retained);
+  }
+  await expect(page.locator('.panel[data-stage="plan"] .panel-foot')).toBeVisible();
+  const viewport = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewport.scrollWidth).toBe(viewport.clientWidth);
+  expect(savedSnapshot.plan.scripts.join('\n')).toContain('Situation（情境）');
+  expect(savedSnapshot.plan.scripts.join('\n')).toContain('团队只能临时调整资源');
 });
 
 test('GROW 和 SBI 的每个阶段分别显示为独立段落', async ({ page }) => {

@@ -223,6 +223,12 @@ const COACHING_STAGE_LABELS = [
   'Impact（影响）',
 ];
 
+const SBI_STAGE_LABELS = new Set([
+  'Situation（情境）',
+  'Behavior（行为）',
+  'Impact（影响）',
+]);
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -385,16 +391,18 @@ function isCoachingStageBoundary(markdown, matchIndex, line) {
   return before.length === 0 || /[\r\n；;。]$/.test(before);
 }
 
-function formatCoachingStageMarkdown(source) {
-  const markdown = normalizeMarkdownSource(source);
+function createCoachingStageLabelRegex() {
   const labels = COACHING_STAGE_LABELS.map(escapeRegExp).join('|');
-  const stageLabel = new RegExp(
-    `(?:(\\*\\*|__)(?:${labels})(?:\\1[ \\t]*[：:]|[ \\t]*[：:]\\1)|(?:${labels})[ \\t]*[：:])`,
+  return new RegExp(
+    `(?:(\\*\\*|__)(${labels})(?:\\1[ \\t]*[：:]|[ \\t]*[：:]\\1)|(${labels})[ \\t]*[：:])`,
     'g',
   );
-  const lineBreak = markdown.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function findCoachingStageMatches(markdown) {
+  const stageLabel = createCoachingStageLabelRegex();
   const { lines, protectedRanges } = inspectMarkdownLines(markdown);
-  const insertions = [];
+  const stages = [];
   let lineIndex = 0;
   let match;
 
@@ -406,6 +414,49 @@ function formatCoachingStageMarkdown(source) {
     const line = lines[lineIndex];
     if (!isCoachingStageBoundary(markdown, matchIndex, line)) continue;
     const prefix = parseMarkdownPrefix(markdown.slice(line.start, matchIndex), true);
+    stages.push({
+      index: matchIndex,
+      start: prefix ? line.start : matchIndex,
+      label: match[2] || match[3],
+      line,
+      lineIndex,
+      prefix,
+    });
+  }
+  return { lines, stages };
+}
+
+function omitCoachingStages(source, omittedLabels) {
+  const markdown = normalizeMarkdownSource(source);
+  const { stages } = findCoachingStageMatches(markdown);
+  const ranges = stages
+    .map((stage, index) => ({
+      start: stage.start,
+      end: stages[index + 1]?.start ?? markdown.length,
+      omitted: omittedLabels.has(stage.label),
+    }))
+    .filter(({ omitted }) => omitted);
+  if (ranges.length === 0) return markdown;
+
+  let filtered = '';
+  let cursor = 0;
+  for (const { start, end } of ranges) {
+    filtered += markdown.slice(cursor, start);
+    cursor = end;
+  }
+  return filtered + markdown.slice(cursor);
+}
+
+function formatCoachingStageMarkdown(source) {
+  const markdown = normalizeMarkdownSource(source);
+  const lineBreak = markdown.includes('\r\n') ? '\r\n' : '\n';
+  const { lines, stages } = findCoachingStageMatches(markdown);
+  const insertions = [];
+
+  for (const stage of stages) {
+    const {
+      index: matchIndex, line, lineIndex, prefix,
+    } = stage;
     if (prefix) {
       const priorLineIsBlank = lineIndex === 0 || lines[lineIndex - 1].text.trim().length === 0;
       if (!priorLineIsBlank) insertions.push({ index: line.start, text: lineBreak });
@@ -433,7 +484,9 @@ function markdownCard(parent, id, title, source, options = {}) {
   heading.append(document.createTextNode(title));
   card.append(heading);
   const content = node('div', { id });
-  const markdown = normalizeMarkdownSource(source);
+  const markdown = options.omitCoachingStages
+    ? omitCoachingStages(source, options.omitCoachingStages)
+    : normalizeMarkdownSource(source);
   window.renderMarkdown(
     content,
     options.separateCoachingStages ? formatCoachingStageMarkdown(markdown) : markdown,
@@ -789,6 +842,7 @@ function renderPlan(root, state, handlers) {
   markdownCard(report, 'plan-scripts', '话术示例', state.plan.scripts, {
     marker: '话',
     separateCoachingStages: true,
+    omitCoachingStages: SBI_STAGE_LABELS,
   });
   body.append(report);
   appendHistorySyncStatus(body, state, handlers);
