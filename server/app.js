@@ -89,6 +89,9 @@ function createApp({ coachService, authBoundary } = {}) {
   });
   app.use('/api', authBoundary.sessionMiddleware);
   app.use('/api/auth', authBoundary.router);
+  app.use('/api/coach', authBoundary.requireAuth);
+  app.use('/api/coach', authBoundary.requireSameOrigin);
+  app.use('/api/coach', authBoundary.requireSessionCsrf);
 
   for (const method of ['intake', 'classify', 'plan', 'feedback']) {
     app.post(`/api/coach/${method}`, async (request, response) => {

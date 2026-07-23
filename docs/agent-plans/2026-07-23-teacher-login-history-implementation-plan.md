@@ -702,12 +702,12 @@ git commit -m "feat: add recovery password reset"
 
 - Modify: `server/app.js`
 - Modify: `frontend/api.js`
-- Modify: `tests/helpers/test-auth-boundary.js`
+- Verify unchanged: `tests/helpers/test-auth-boundary.js`
 - Create: `tests/server.workflow-auth.test.js`
-- Modify: `tests/server.routes.test.js`
+- Verify unchanged: `tests/server.routes.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写保护 RED**
+- [x] **Step 1: 写保护 RED**
 
 未登录调用四条接口均返回 401 且不调用教练服务；登录后缺少/错误同源或 CSRF 返回 403；有效请求的业务请求体与成功响应不增删字段：
 
@@ -722,13 +722,13 @@ for (const method of ['intake', 'classify', 'plan', 'feedback']) {
 assert.equal(coachCalls.length, 0);
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.workflow-auth.test.js tests/server.routes.test.js
 ```
 
-- [ ] **Step 3: 统一路由顺序**
+- [x] **Step 3: 统一路由顺序**
 
 顺序固定为：
 
@@ -740,16 +740,16 @@ assert.equal(coachCalls.length, 0);
 
 `frontend/api.js` 的所有教练 POST 自动携带内存中的 Session CSRF Token，不保存 Cookie 或 Token 到 Web Storage。
 
-- [ ] **Step 4: 运行 GREEN 与原业务回归**
+- [x] **Step 4: 运行 GREEN 与原业务回归**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.workflow-auth.test.js tests/server.routes.test.js tests/server.contracts.test.js tests/server.guardrails.test.js tests/server.coaching-methods.test.js
 ```
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
-git add -- server/app.js frontend/api.js tests/helpers/test-auth-boundary.js tests/server.workflow-auth.test.js tests/server.routes.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
+git add -- server/app.js frontend/api.js tests/server.workflow-auth.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
 git diff --cached --check
 git commit -m "feat: protect coaching APIs"
 ```

@@ -1,6 +1,11 @@
 import { beginRequestEpoch, invalidateRequestEpoch, isCurrentEpoch } from './state.js';
 
 let pendingController = null;
+let sessionCsrfToken = null;
+
+export function setSessionCsrfToken(token) {
+  sessionCsrfToken = typeof token === 'string' && token ? token : null;
+}
 
 export function cancelPendingRequests({ invalidate = true } = {}) {
   if (invalidate) invalidateRequestEpoch();
@@ -21,9 +26,11 @@ export async function request(method, payload) {
   pendingController = controller;
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (sessionCsrfToken) headers['X-CSRF-Token'] = sessionCsrfToken;
     const response = await fetch(`/api/coach/${method}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
