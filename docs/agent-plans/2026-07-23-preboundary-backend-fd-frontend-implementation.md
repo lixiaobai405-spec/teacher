@@ -192,9 +192,11 @@ Start-Process 'http://127.0.0.1:4186/'
 
 Expected: `baseline_ready=True` and the browser opens the local application.
 
-- [ ] **Step 5: Execute exactly one fixed representative workflow**
+- [x] **Step 5: Execute exactly one fixed representative workflow**
 
 2026-07-23 execution note: the user explicitly replaced the fixed values below with the first B-class scenario in `D:\codex-pj\teacher\docs\测试文档.md`. The submitted `intake` request returned HTTP 200, but the first and only `classify` request returned HTTP 503 with `SERVICE_UNAVAILABLE`; no retry and no `plan` request were made. Read-only diagnostics confirmed that the API key authenticates, the account reports available balance, and `deepseek-v4-pro` appears in the available model list. The application currently collapses every non-2xx upstream response into `MODEL_SERVICE_UNAVAILABLE`, so the exact upstream status cannot be recovered from this attempt.
+
+Follow-up diagnostic note: after the user approved safe instrumentation and additional real API calls, mock tests proved both non-2xx and pre-response network diagnostics without exposing the API key, prompts, or model output. The next real `intake` failed before any HTTP response reached the client, while the same request subsequently returned HTTP 200. The completed browser workflow then returned HTTP 200 for `intake`, `classify`, and `plan`, selected the B profile, and rendered the coaching plan. This isolates the earlier 503 to a transient pre-response network failure rather than the request payload, model name, API key, balance, or response validator. Because the approved final composition requires the complete backend to remain identical to `0992fe3`, the temporary instrumentation was removed after diagnosis and no automatic paid retry was added.
 
 Use these non-sensitive values:
 
