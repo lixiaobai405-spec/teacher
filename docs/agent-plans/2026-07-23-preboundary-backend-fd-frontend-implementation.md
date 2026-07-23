@@ -423,7 +423,7 @@ Expected: no listener and no rejection for the successful workflow. If this gate
 **Files:**
 - Modify: remote branch metadata only
 
-- [ ] **Step 1: Audit status, commits, changed paths, and secret exclusions**
+- [x] **Step 1: Audit status, commits, changed paths, and secret exclusions**
 
 ```powershell
 git status --short --branch
@@ -440,7 +440,7 @@ if ($unsafeTracked) { throw 'Unsafe generated or secret-like file is tracked.' }
 
 Expected: clean status; only the two planning documents, three frontend files, and `tests/frontend.spec.js` differ from `0992fe3`; no secret, log, or dependency directory is tracked.
 
-- [ ] **Step 2: Record and push the exact deployment commit**
+- [x] **Step 2: Record and push the exact deployment commit**
 
 ```powershell
 $deployCommit = (git rev-parse HEAD).Trim()
