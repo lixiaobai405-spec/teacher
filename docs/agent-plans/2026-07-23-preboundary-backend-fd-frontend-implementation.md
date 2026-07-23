@@ -236,7 +236,7 @@ Expected: port 4186 has no listener and the diagnostic search has no rejection f
 - Modify: `frontend/views.js`
 - Modify: `tests/frontend.spec.js`
 
-- [ ] **Step 1: Record the pre-port commit and verify cleanliness**
+- [x] **Step 1: Record the pre-port commit and verify cleanliness**
 
 ```powershell
 $portBase = (git rev-parse HEAD).Trim()
@@ -248,7 +248,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Tracked changes exist before frontend port.' }
 
 Expected: clean worktree and a recorded commit ID.
 
-- [ ] **Step 2: Cherry-pick the five frontend commits in order**
+- [x] **Step 2: Cherry-pick the five frontend commits in order**
 
 ```powershell
 $frontendCommits = @(
@@ -270,7 +270,7 @@ foreach ($commit in $frontendCommits) {
 
 Expected: five cherry-picks succeed without conflicts.
 
-- [ ] **Step 3: Verify the port changed only approved paths**
+- [x] **Step 3: Verify the port changed only approved paths**
 
 ```powershell
 $changed = git diff --name-only "$portBase..HEAD"
@@ -298,7 +298,7 @@ Expected: only the four approved paths appear.
 - Modify: none beyond Task 4
 - Test: all repository tests
 
-- [ ] **Step 1: Prove frontend and frontend tests match `fd79896`**
+- [x] **Step 1: Prove frontend and frontend tests match `fd79896`**
 
 ```powershell
 git diff --exit-code fd798968c89c4a77f189a0bf240546db40bf7a68 -- frontend tests/frontend.spec.js
@@ -307,7 +307,7 @@ Write-Output "frontend_identity_exit=$LASTEXITCODE"
 
 Expected: no diff and `frontend_identity_exit=0`.
 
-- [ ] **Step 2: Prove backend, prompts, contracts, and dependencies remain at `0992fe3`**
+- [x] **Step 2: Prove backend, prompts, contracts, and dependencies remain at `0992fe3`**
 
 ```powershell
 git diff --exit-code 0992fe3a19f1db99c159268d87af3beef6f00720 -- server prompts package.json package-lock.json .env.example
@@ -316,7 +316,7 @@ Write-Output "backend_identity_exit=$LASTEXITCODE"
 
 Expected: no diff and `backend_identity_exit=0`.
 
-- [ ] **Step 3: Run the complete automated suite**
+- [x] **Step 3: Run the complete automated suite**
 
 ```powershell
 npm.cmd test
@@ -324,7 +324,7 @@ npm.cmd test
 
 Expected: server and Playwright tests all pass with exit code 0.
 
-- [ ] **Step 4: Verify repository integrity**
+- [x] **Step 4: Verify repository integrity**
 
 ```powershell
 git status --short --branch
