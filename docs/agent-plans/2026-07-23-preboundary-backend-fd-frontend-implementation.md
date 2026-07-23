@@ -26,7 +26,7 @@
 - Modify: none in tracked source
 - Generate locally: `node_modules/` only
 
-- [ ] **Step 1: Confirm the isolated worktree, branch, and baseline ancestry**
+- [x] **Step 1: Confirm the isolated worktree, branch, and baseline ancestry**
 
 Run in PowerShell:
 
@@ -43,7 +43,7 @@ Write-Output "baseline_ancestor_exit=$LASTEXITCODE"
 
 Expected: branch is `codex/preboundary-fd-frontend`, status is clean, and `baseline_ancestor_exit=0`. The two documentation commits may be above `0992fe3`, but no runtime file may differ yet.
 
-- [ ] **Step 2: Prove runtime files still match `0992fe3`**
+- [x] **Step 2: Prove runtime files still match `0992fe3`**
 
 ```powershell
 git diff --exit-code 0992fe3a19f1db99c159268d87af3beef6f00720 -- frontend server prompts tests package.json package-lock.json .env.example
@@ -52,7 +52,7 @@ Write-Output "runtime_baseline_exit=$LASTEXITCODE"
 
 Expected: no diff and `runtime_baseline_exit=0`.
 
-- [ ] **Step 3: Check Node and npm without exposing environment secrets**
+- [x] **Step 3: Check Node and npm without exposing environment secrets**
 
 ```powershell
 node --version
@@ -62,7 +62,7 @@ Test-Path -LiteralPath 'D:\codex-pj\teacher\.env'
 
 Expected: Node major version is at least 20 and the final command returns `True`. Do not run `Get-Content` on `.env`.
 
-- [ ] **Step 4: Install the exact locked dependencies in the isolated worktree**
+- [x] **Step 4: Install the exact locked dependencies in the isolated worktree**
 
 This command accesses the npm registry and only writes `node_modules/` in the worktree:
 
@@ -72,7 +72,7 @@ npm.cmd ci --no-audit --no-fund
 
 Expected: exit code 0.
 
-- [ ] **Step 5: Verify top-level dependency consistency and tracked cleanliness**
+- [x] **Step 5: Verify top-level dependency consistency and tracked cleanliness**
 
 ```powershell
 npm.cmd ls --depth=0
