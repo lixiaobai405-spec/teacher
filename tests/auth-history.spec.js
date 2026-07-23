@@ -163,6 +163,25 @@ test('登录后刷新恢复身份但不恢复草稿，退出后 Session 失效',
   expect(status).toBe(401);
 });
 
+test('工作区返回首页只清空流程并保留真实登录 Session', async ({ page }) => {
+  await registerAndLogin(page, 'Ui_Return_Home_Session_01');
+  await page.getByRole('button', { name: '开始辅导' }).click();
+  await page.getByLabel('绩效目标 / 上层期望').fill('尚未生成方案的目标');
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('当前内容尚未保存，离开后将丢失。是否继续？');
+    await dialog.accept();
+  });
+
+  await page.locator('#workspace-return-home').click();
+  await expect(page.getByRole('heading', { name: '因材施教，给每个人对的辅导方式' }))
+    .toBeVisible();
+  await expect(page.getByRole('button', { name: '退出登录' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '因材施教，给每个人对的辅导方式' }))
+    .toBeVisible();
+  await expect(page.locator('#auth-user')).toContainText('Ui_Return_Home_Session_01');
+});
+
 test('恢复码找回密码会撤销旧登录并只展示一次新恢复码', async ({ page, browser }) => {
   test.setTimeout(60_000);
   const username = 'Ui_Recovery_01';

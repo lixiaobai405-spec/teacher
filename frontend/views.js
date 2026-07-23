@@ -607,6 +607,7 @@ function renderIntake(root, state, handlers) {
   });
 
   const footer = createPanelFooter();
+  appendPreviousButton(footer, handlers);
   if (result.questions.length > 0) {
     footer.append(button('review-intake-again', state.busy ? '正在审查…' : '再次审查', () => {
       const answers = result.questions.map((question, index) => ({

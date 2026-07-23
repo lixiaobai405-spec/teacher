@@ -1063,7 +1063,7 @@ git commit -m "feat: add coaching history interface"
 - Modify: `tests/auth-history.spec.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写导航 RED**
+- [x] **Step 1: 写导航 RED**
 
 覆盖：
 
@@ -1075,13 +1075,13 @@ git commit -m "feat: add coaching history interface"
 - 历史已同步时直接导航。
 - 320px、375px 和桌面宽度无横向溢出。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/frontend.spec.js tests/auth-history.spec.js --grep "上一步|返回首页|未保存|迟到响应|横向溢出"
 ```
 
-- [ ] **Step 3: 实现统一导航门卫**
+- [x] **Step 3: 实现统一导航门卫**
 
 ```js
 function hasUnsavedWorkflow() {
@@ -1098,11 +1098,11 @@ function confirmUnsavedNavigation() {
 
 `goPrevious()` 与 `returnHome()` 先执行门卫，再取消请求。第 1 步的 previous target 为登录后首页；返回首页重置工作流但保留 `user` 和 Session CSRF Token。
 
-- [ ] **Step 4: 更新文案与可访问性**
+- [x] **Step 4: 更新文案与可访问性**
 
 工作区顶部按钮保留 `aria-label="返回首页"`；每一步底部按钮使用 `aria-label="返回上一步"`。认证页隐藏工作区返回按钮；历史页提供明确的“返回首页/返回历史列表”。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\npx.cmd" playwright test tests/frontend.spec.js tests/auth-history.spec.js --grep "上一步|返回首页|未保存|迟到响应|横向溢出"

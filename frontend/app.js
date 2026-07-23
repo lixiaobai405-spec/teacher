@@ -64,19 +64,36 @@ function toast(message) {
   toastElement._timeout = setTimeout(() => toastElement.classList.remove('show'), 1800);
 }
 
-function returnHome() {
-  if (!session.user) {
-    if (session.authReady) setScreen('login');
-    render();
-    return;
-  }
+function hasUnsavedWorkflow() {
+  return session.workflowDirty
+    || session.historySync.status === 'saving'
+    || session.historySync.status === 'failed';
+}
+
+function confirmUnsavedNavigation() {
+  return !hasUnsavedWorkflow()
+    || window.confirm('当前内容尚未保存，离开后将丢失。是否继续？');
+}
+
+function resetWorkflowToHome() {
   resetApiState();
   resetSession();
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function returnHome() {
+  if (!session.user) {
+    if (session.authReady) setScreen('login');
+    render();
+    return;
+  }
+  if (!confirmUnsavedNavigation()) return;
+  resetWorkflowToHome();
+}
+
 const PREVIOUS_SCREEN = Object.freeze({
+  intake: ['home', null],
   classification: ['intake', 1],
   plan: ['classification', 2],
   feedback: ['plan', 3],
@@ -96,6 +113,11 @@ function startCoaching() {
 function goPrevious() {
   const target = PREVIOUS_SCREEN[session.screen];
   if (!target) return;
+  if (!confirmUnsavedNavigation()) return;
+  if (target[0] === 'home') {
+    resetWorkflowToHome();
+    return;
+  }
   cancelPendingRequests();
   if (session.screen === 'feedback') {
     const feedbackInput = document.getElementById('feedback-text');
