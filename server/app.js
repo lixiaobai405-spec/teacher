@@ -31,6 +31,7 @@ const SAFE_SERVICE_ERRORS = Object.freeze({
     message: '模型服务暂不可用，请稍后重试。',
   },
 });
+const SAFE_HTTP_PROBLEM_CODES = new Set(['DATABASE_UNAVAILABLE']);
 
 const HR_REVIEW_RESPONSE = Object.freeze({
   code: 'HR_REVIEW_REQUIRED',
@@ -63,11 +64,28 @@ function sendBlocked(response) {
   response.json({ ok: true, blocked: true, ...HR_REVIEW_RESPONSE });
 }
 
+function requireMutationSecurity(authBoundary) {
+  return (request, response, next) => {
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      next();
+      return;
+    }
+    authBoundary.requireSameOrigin(request, response, (originError) => {
+      if (originError) {
+        next(originError);
+        return;
+      }
+      authBoundary.requireSessionCsrf(request, response, next);
+    });
+  };
+}
+
 function createApp({ coachService, authBoundary } = {}) {
   if (
     !authBoundary
     || typeof authBoundary.sessionMiddleware !== 'function'
     || typeof authBoundary.router !== 'function'
+    || typeof authBoundary.historyRouter !== 'function'
     || typeof authBoundary.requireAuth !== 'function'
     || typeof authBoundary.requireSameOrigin !== 'function'
     || typeof authBoundary.requireSessionCsrf !== 'function'
@@ -89,6 +107,9 @@ function createApp({ coachService, authBoundary } = {}) {
   });
   app.use('/api', authBoundary.sessionMiddleware);
   app.use('/api/auth', authBoundary.router);
+  app.use('/api/history', authBoundary.requireAuth);
+  app.use('/api/history', requireMutationSecurity(authBoundary));
+  app.use('/api/history', authBoundary.historyRouter);
   app.use('/api/coach', authBoundary.requireAuth);
   app.use('/api/coach', authBoundary.requireSameOrigin);
   app.use('/api/coach', authBoundary.requireSessionCsrf);
@@ -152,8 +173,10 @@ function createApp({ coachService, authBoundary } = {}) {
     if (
       error.expose === true
       && Number.isInteger(error.status)
-      && error.status >= 400
-      && error.status <= 499
+      && (
+        (error.status >= 400 && error.status <= 499)
+        || (error.status === 503 && SAFE_HTTP_PROBLEM_CODES.has(error.code))
+      )
       && typeof error.code === 'string'
       && typeof error.message === 'string'
     ) {

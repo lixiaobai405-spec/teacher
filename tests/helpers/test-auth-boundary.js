@@ -1,7 +1,8 @@
 const express = require('express');
 
-function createTestAuthBoundary() {
+function createTestAuthBoundary({ historyRouter = express.Router() } = {}) {
   return Object.freeze({
+    historyRouter,
     sessionMiddleware(request, _response, next) {
       request.sessionID = 'test-session-id';
       request.session = { userId: '00000000-0000-4000-8000-000000000000' };

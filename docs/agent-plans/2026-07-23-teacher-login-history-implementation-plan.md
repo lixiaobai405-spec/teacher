@@ -832,11 +832,12 @@ git commit -m "feat: add isolated coaching history"
 - Create: `server/history/router.js`
 - Modify: `server/runtime.js`
 - Modify: `server/app.js`
+- Modify: `tests/helpers/test-auth-boundary.js`
 - Create: `tests/server.history-api.test.js`
 - Create: `tests/server.security.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写 API RED**
+- [x] **Step 1: 写 API RED**
 
 覆盖：
 
@@ -849,7 +850,7 @@ DELETE /api/history/:id
 
 断言首次保存 201，更新同一记录 200 且 ID 相同；列表不返回正文；详情只读；A 访问 B 与不存在记录都返回相同 404；删除要求同源和 CSRF。
 
-- [ ] **Step 2: 写安全错误 RED**
+- [x] **Step 2: 写安全错误 RED**
 
 向 Repository 注入包含 `SQLITE_PRIVATE_MARKER`、数据库路径和员工正文的错误，断言响应不包含标记：
 
@@ -862,13 +863,13 @@ assert.deepEqual(await response.json(), {
 });
 ```
 
-- [ ] **Step 3: 运行 RED**
+- [x] **Step 3: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.history-api.test.js tests/server.security.test.js
 ```
 
-- [ ] **Step 4: 实现 Router**
+- [x] **Step 4: 实现 Router**
 
 Router 只从 `request.auth.userId` 获取用户，成功响应使用 Teacher 信封：
 
@@ -880,11 +881,11 @@ response.status(204).end();
 
 数据库异常只映射为稳定错误码，不把原错误传给客户端。
 
-- [ ] **Step 5: 运行 GREEN 并提交**
+- [x] **Step 5: 运行 GREEN 并提交**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.history-api.test.js tests/server.security.test.js
-git add -- server/history/router.js server/runtime.js server/app.js tests/server.history-api.test.js tests/server.security.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
+git add -- server/history/router.js server/runtime.js server/app.js tests/helpers/test-auth-boundary.js tests/server.history-api.test.js tests/server.security.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
 git diff --cached --check
 git commit -m "feat: add coaching history APIs"
 ```

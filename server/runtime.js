@@ -5,6 +5,8 @@ const { createRequireAuth } = require('./auth/middleware.js');
 const { createAuthRateLimiters } = require('./auth/rate-limiters.js');
 const { createAuthRouter } = require('./auth/router.js');
 const { openDatabase } = require('./database/sqlite.js');
+const { createHistoryRouter } = require('./history/router.js');
+const { createHistoryRepository } = require('./repositories/history-repository.js');
 const { createSessionRepository } = require('./repositories/session-repository.js');
 const { createUserRepository } = require('./repositories/user-repository.js');
 const {
@@ -46,6 +48,7 @@ function includeSessionMaxAge(sessionMiddleware, sessionMaxAgeMs) {
 
 async function createRuntime(config) {
   const database = await openDatabase({ filename: config.databasePath });
+  const historyRepository = createHistoryRepository({ database });
   const userRepository = createUserRepository({ database });
   const sessionRepository = createSessionRepository({ database });
   const sessionCookie = Object.freeze({
@@ -111,6 +114,7 @@ async function createRuntime(config) {
     sessionCookie,
   });
   const authBoundary = Object.freeze({
+    historyRouter: createHistoryRouter({ historyRepository }),
     router,
     requireAuth,
     requireSameOrigin: sameOrigin,
