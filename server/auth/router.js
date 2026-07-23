@@ -16,6 +16,40 @@ function credentials(body) {
   return { username: body.username, password: body.password };
 }
 
+function recoveryReset(body) {
+  if (
+    !body
+    || typeof body !== 'object'
+    || Array.isArray(body)
+    || Object.keys(body).some(
+      (key) => !['username', 'recoveryCode', 'newPassword'].includes(key),
+    )
+    || typeof body.username !== 'string'
+    || typeof body.recoveryCode !== 'string'
+    || typeof body.newPassword !== 'string'
+  ) {
+    throw httpProblem('INPUT_INVALID', '重置密码信息格式不正确。', 400);
+  }
+  return {
+    username: body.username,
+    recoveryCode: body.recoveryCode,
+    newPassword: body.newPassword,
+  };
+}
+
+function currentPassword(body) {
+  if (
+    !body
+    || typeof body !== 'object'
+    || Array.isArray(body)
+    || Object.keys(body).some((key) => key !== 'password')
+    || typeof body.password !== 'string'
+  ) {
+    throw httpProblem('INPUT_INVALID', '密码格式不正确。', 400);
+  }
+  return { password: body.password };
+}
+
 function regenerate(request) {
   return new Promise((resolve, reject) => request.session.regenerate((error) => (
     error ? reject(error) : resolve()
@@ -94,6 +128,31 @@ function createAuthRouter({
         path: sessionCookie.path,
       });
       response.status(204).end();
+    }),
+  );
+
+  router.post(
+    '/password/reset-with-recovery',
+    requireSameOrigin,
+    limiters.reset,
+    requirePreAuthCsrf,
+    asyncRoute(async (request, response) => {
+      const result = await authService.resetWithRecovery(recoveryReset(request.body));
+      response.json(result);
+    }),
+  );
+
+  router.post(
+    '/recovery-code/rotate',
+    requireSameOrigin,
+    requireAuth,
+    requireSessionCsrf,
+    asyncRoute(async (request, response) => {
+      const result = await authService.rotateRecoveryCode({
+        userId: request.auth.user.id,
+        ...currentPassword(request.body),
+      });
+      response.json(result);
     }),
   );
 

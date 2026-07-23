@@ -86,6 +86,7 @@ async function createRuntime(config) {
   const authService = createAuthService({
     database,
     userRepository,
+    sessionRepository,
     passwordService,
     recoveryCodeService: recoveryCode,
   });

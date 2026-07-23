@@ -650,10 +650,11 @@ git commit -m "feat: add account authentication APIs"
 - Modify: `server/auth/auth-service.js`
 - Modify: `server/auth/router.js`
 - Modify: `server/repositories/user-repository.js`
+- Modify: `server/runtime.js`
 - Create: `tests/server.recovery-api.test.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 写恢复 API RED**
+- [x] **Step 1: 写恢复 API RED**
 
 覆盖：
 
@@ -664,13 +665,13 @@ POST /api/auth/recovery-code/rotate
 
 重置必须在同一事务中更新密码、轮换恢复码和版本，并删除该用户全部 Session；事务失败全部回滚。轮换接口要求有效 Session、CSRF 和当前密码，不撤销其他有效 Session。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.recovery-api.test.js tests/server.auth-api.test.js
 ```
 
-- [ ] **Step 3: 实现事务服务**
+- [x] **Step 3: 实现事务服务**
 
 ```js
 authService.resetWithRecovery({ username, recoveryCode, newPassword });
@@ -679,16 +680,16 @@ authService.rotateRecoveryCode({ userId, password });
 
 事务提交后才返回新明文恢复码。旧恢复码、旧密码和所有旧 Session 必须失效。
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.recovery-api.test.js tests/server.auth-api.test.js
 ```
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
-git add -- server/auth/auth-service.js server/auth/router.js server/repositories/user-repository.js tests/server.recovery-api.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
+git add -- server/auth/auth-service.js server/auth/router.js server/repositories/user-repository.js server/runtime.js tests/server.recovery-api.test.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
 git diff --cached --check
 git commit -m "feat: add recovery password reset"
 ```

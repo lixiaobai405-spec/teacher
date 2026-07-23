@@ -92,6 +92,20 @@ function createUserRepository({ database, now = () => new Date().toISOString() }
         [passwordHash, recoveryCodeHash, now(), userId],
       );
     },
+
+    async rotateRecoveryCode(
+      transaction,
+      { userId, expectedPasswordHash, recoveryCodeHash },
+    ) {
+      return transaction.run(
+        `UPDATE users
+         SET recovery_code_hash = ?,
+             recovery_code_version = recovery_code_version + 1,
+             updated_at = ?
+         WHERE id = ? AND password_hash = ?`,
+        [recoveryCodeHash, now(), userId, expectedPasswordHash],
+      );
+    },
   });
 }
 
