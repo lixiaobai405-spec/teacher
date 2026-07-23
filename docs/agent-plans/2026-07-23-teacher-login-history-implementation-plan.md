@@ -1240,11 +1240,11 @@ git commit -m "docs: add authenticated SQLite operations"
 - Modify: `tests/auth-history.spec.js`
 - Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
 
-- [ ] **Step 1: 补齐最终安全 RED**
+- [x] **Step 1: 补齐最终安全 RED**
 
 使用不同标记注入用户名、密码、恢复码、原始 Session、CSRF、员工正文和 SQLite 错误。断言 API 响应、日志和前端存储不包含敏感标记；直接查询临时数据库，确认只存在预期哈希和所属用户历史。
 
-- [ ] **Step 2: 运行定向安全测试**
+- [x] **Step 2: 运行定向安全测试**
 
 ```powershell
 & "$projectNodeBin\node.exe" --test tests/server.password.test.js tests/server.recovery-code.test.js tests/server.session-store.test.js tests/server.auth-security.test.js tests/server.auth-api.test.js tests/server.recovery-api.test.js tests/server.workflow-auth.test.js tests/server.history-contracts.test.js tests/server.history-repository.test.js tests/server.history-api.test.js tests/server.security.test.js
@@ -1253,7 +1253,7 @@ git commit -m "docs: add authenticated SQLite operations"
 
 Expected: 全部 GREEN；若有失败，只做对应安全边界的最小修复。
 
-- [ ] **Step 3: 运行全部正式测试**
+- [x] **Step 3: 运行全部正式测试**
 
 ```powershell
 & "$projectNodeBin\npm.cmd" run test:server
@@ -1265,7 +1265,15 @@ git status --short --branch
 
 Expected: 原有 154 项回归和全部新增测试通过；无真实模型请求。
 
-- [ ] **Step 4: 检查 Git 范围与 hooks**
+本次实际结果：
+
+- 定向安全测试：51/51。
+- `npm run test:server`：147/147。
+- `npm run test:e2e`：91/91。
+- `npm test` 组合入口：238/238。
+- 全程使用 mock 与临时 SQLite，未发出真实模型请求。
+
+- [x] **Step 4: 检查 Git 范围与 hooks**
 
 ```powershell
 git config --get core.hooksPath
@@ -1279,7 +1287,7 @@ Get-ChildItem -Recurse -Force -File |
 
 Expected: 只存在被忽略的测试临时产物或无结果；没有 `.env`、数据库、日志或密钥进入 Git。
 
-- [ ] **Step 5: 更新勾选状态并提交最终证据**
+- [x] **Step 5: 更新勾选状态并提交最终证据**
 
 ```powershell
 git add -- tests/server.security.test.js tests/auth-history.spec.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
@@ -1289,7 +1297,7 @@ git commit -m "test: verify authenticated history workflow"
 
 如果 Step 2 产生最小实现修复，必须根据 `git status --short` 把实际文件逐个加入上面的显式 `git add --`，不得使用目录通配。
 
-- [ ] **Step 6: 推送前审计**
+- [x] **Step 6: 推送前审计**
 
 ```powershell
 git status --short --branch

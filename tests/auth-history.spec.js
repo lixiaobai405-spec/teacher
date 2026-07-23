@@ -182,6 +182,71 @@ test('工作区返回首页只清空流程并保留真实登录 Session', async 
   await expect(page.locator('#auth-user')).toContainText('Ui_Return_Home_Session_01');
 });
 
+test('浏览器不持久化凭据、CSRF 或员工正文且 Session 仅在 HttpOnly Cookie', async ({
+  page,
+  context,
+}) => {
+  const username = 'Ui_Browser_Storage_Security_01';
+  const employeeMarker = 'Browser-Employee-Private-Marker-正文';
+  const recoveryCode = await registerAndLogin(page, username);
+  await mockCoachApi(page);
+  await page.getByRole('button', { name: '开始辅导' }).click();
+  await page.getByLabel('岗位类别').selectOption({ label: '骨干/带教岗' });
+  await page.getByLabel('在团队入职时长').selectOption({ label: '1 年以上' });
+  await page.getByLabel('当前绩效状态').selectOption({ label: '持续达标' });
+  await page.getByLabel('绩效目标 / 上层期望').fill(employeeMarker);
+  await page.getByLabel('近期辅导困扰').fill(`${employeeMarker}-困扰`);
+  await page.getByLabel('员工特征补充').fill(`${employeeMarker}-特征`);
+  await page.getByRole('button', { name: '判定类型' }).click();
+  await page.getByLabel('追问 1').fill('尚未做过。');
+  await page.getByRole('button', { name: '再次审查' }).click();
+  await page.getByRole('button', { name: '生成类型判定' }).click();
+  await page.getByRole('button', { name: '生成辅导方案' }).click();
+  await expect(page.locator('.history-sync-status')).toContainText('历史已保存');
+
+  const mePayload = await page.evaluate(() => fetch('/api/auth/me').then((response) => response.json()));
+  const sessionCookie = (await context.cookies()).find(({ name }) => name === 'teacher.sid');
+  expect(sessionCookie).toMatchObject({
+    httpOnly: true,
+    secure: false,
+    sameSite: 'Strict',
+  });
+  const browserStorage = await page.evaluate(async () => ({
+    local: { ...localStorage },
+    session: { ...sessionStorage },
+    indexedDatabases: typeof indexedDB.databases === 'function'
+      ? (await indexedDB.databases()).map((database) => database.name)
+      : [],
+    documentCookie: document.cookie,
+    hiddenValues: [...document.querySelectorAll('input[type="hidden"]')]
+      .map((input) => input.value),
+  }));
+  const serializedStorage = JSON.stringify(browserStorage);
+  for (const privateValue of [
+    PASSWORD,
+    recoveryCode,
+    mePayload.csrfToken,
+    sessionCookie.value,
+    employeeMarker,
+  ]) {
+    expect(serializedStorage).not.toContain(privateValue);
+  }
+  expect(browserStorage).toEqual({
+    local: {},
+    session: {},
+    indexedDatabases: [],
+    documentCookie: '',
+    hiddenValues: [],
+  });
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: '开始辅导' })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(employeeMarker);
+  await openHistory(page);
+  await page.getByRole('button', { name: '查看详情' }).click();
+  await expect(page.locator('.history-detail')).toContainText(employeeMarker);
+});
+
 test('恢复码找回密码会撤销旧登录并只展示一次新恢复码', async ({ page, browser }) => {
   test.setTimeout(60_000);
   const username = 'Ui_Recovery_01';
