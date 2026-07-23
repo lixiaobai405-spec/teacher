@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` or `executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execute tasks sequentially because later authentication, history, and frontend tasks depend on earlier database and security boundaries.
 
-**Goal:** 为 Teacher 增加开放注册、恢复码找回、SQLite 持久化 Session、按用户隔离的教练历史和完整导航，同时保持现有四步教练业务与模型契约不变。
+**Goal:** 为 Teacher 增加开放注册、恢复码找回、SQLite 持久化 Session、按用户隔离的教练历史和完整导航，并消除第 3 步重复的 SBI 展示，同时保持现有四步教练业务与模型契约不变。
 
 **Architecture:** 选择性移植 `D:\codex-pj\time` 中经过测试的 SQLite、`express-session`、`scrypt`、CSRF 和限流边界，但在 Teacher 内独立实现并使用自己的表名、Cookie 和 API 信封。Express 继续作为单进程 HTTP 服务；原生前端启动时恢复身份，方案生成后以稳定 `clientRecordId` 幂等同步历史。
 
@@ -1111,6 +1111,64 @@ git commit -m "feat: unify authenticated navigation"
 
 ---
 
+### Task 14A: 隐藏“话术示例”中重复的 SBI 展示
+
+**Files:**
+
+- Modify: `frontend/views.js`
+- Modify: `tests/frontend.spec.js`
+- Modify: `docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md`
+
+- [ ] **Step 1: 写展示去重 RED**
+
+构造同时包含 GROW 和 SBI 阶段的 `plan.scripts` fixture，并断言：
+
+- `#plan-scripts` 仍显示 Goal、Reality、Options、Will。
+- `#plan-scripts` 不显示 Situation、Behavior、Impact 及其对应正文。
+- `#plan-gap-fix` 仍完整显示 Situation、Behavior、Impact。
+- 页面仍无横向溢出，底部操作栏保持可见。
+
+测试只检查两个模块各自的内容，不再使用 `#coach-plan` 的全局文本断言，以免重复展示被误判为正确。
+
+- [ ] **Step 2: 运行 RED**
+
+```powershell
+& "$projectNodeBin\npx.cmd" playwright test tests/frontend.spec.js --grep "话术示例隐藏重复 SBI"
+```
+
+Expected: FAIL，`#plan-scripts` 当前仍包含 Situation、Behavior、Impact。
+
+- [ ] **Step 3: 实现仅限展示层的阶段过滤**
+
+在 `frontend/views.js` 增加标签感知的展示过滤，仅在渲染 `#plan-scripts` 前移除完整的 SBI 阶段及其正文，然后继续使用现有 Markdown 安全渲染和阶段分段逻辑。不得用模糊的全文替换误删普通话术，也不得修改：
+
+- `prompts/system.md`
+- `server/contracts.js`
+- `server/coach-service.js`
+- 教练 API 响应
+- `state.plan` 原始数据
+- 写入历史记录的方案快照
+
+`#plan-gap-fix` 不经过该过滤，继续展示完整 SBI。
+
+- [ ] **Step 4: 运行 GREEN 与相关回归**
+
+```powershell
+& "$projectNodeBin\npx.cmd" playwright test tests/frontend.spec.js --grep "话术示例隐藏重复 SBI|GROW 和 SBI|桌面完整 GROW SBI"
+```
+
+Expected: GREEN。若既有测试假设 `#plan-scripts` 展示 SBI，只把断言收窄到正确模块，不降低 `#plan-gap-fix` 的 SBI 覆盖。
+
+- [ ] **Step 5: 提交**
+
+```powershell
+git add -- frontend/views.js tests/frontend.spec.js docs/agent-plans/2026-07-23-teacher-login-history-implementation-plan.md
+git diff --cached --check
+git commit -m "fix: hide duplicate SBI in plan scripts"
+```
+
+---
+
 ### Task 15: 运维脚本、环境说明和交付文档
 
 **Files:**
@@ -1261,7 +1319,7 @@ SESSION_MAX_AGE_MS=604800000
 ## Self-review
 
 - [x] **Spec coverage:** Task 1–11 覆盖 Anaconda 环境、依赖、SQLite、迁移、用户、密码、恢复码、Session、CSRF、限流、认证 API、教练 API 保护、历史契约/API和严格用户隔离。
-- [x] **Frontend coverage:** Task 12–14 覆盖身份恢复、开放注册、恢复码找回、登录后首页、历史自动同步、列表、详情、删除、四步上一步、顶部返回首页、未保存确认和移动端。
+- [x] **Frontend coverage:** Task 12–14A 覆盖身份恢复、开放注册、恢复码找回、登录后首页、历史自动同步、列表、详情、删除、四步上一步、顶部返回首页、未保存确认、移动端，以及第 3 步“话术示例”隐藏重复 SBI、`绩效差距修正方法`保留 SBI。
 - [x] **Privacy coverage:** 历史不包含姓名等新增身份字段；标题由服务端生成；凭据和 Token 只保存哈希；不使用 Web Storage；错误和日志不泄露正文。
 - [x] **Operations coverage:** Task 15–16 覆盖环境变量、迁移、HTTP 已知风险、服务器独立数据库路径、完整回归、hooks、Git 范围和推送前审计。
 - [x] **Interface consistency:** JavaScript 使用 `clientRecordId`/`userId`，SQLite 使用 `client_record_id`/`user_id`；Cookie 始终为 `teacher.sid`；Session 固定 7 天；用户名区分大小写。
