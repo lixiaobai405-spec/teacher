@@ -340,11 +340,11 @@ Expected: clean tracked status, no whitespace errors, and the five frontend comm
 - Modify: none
 - Temporary output: `%TEMP%\teacher-preboundary-combined.stdout.log`, `%TEMP%\teacher-preboundary-combined.stderr.log`
 
-- [ ] **Step 1: Obtain explicit approval for the second paid local workflow**
+- [x] **Step 1: Obtain explicit approval for the second paid local workflow**
 
 Expected: the user explicitly approves one combined-branch workflow. Do not reuse the earlier approval automatically.
 
-- [ ] **Step 2: Start the combined service on port 4186**
+- [x] **Step 2: Start the combined service on port 4186**
 
 ```powershell
 $worktree = 'D:\codex-pj\teacher-preboundary-frontend'
@@ -380,7 +380,7 @@ try {
 
 Expected: the process starts without exposing environment values.
 
-- [ ] **Step 3: Poll health and execute the same fixed workflow once**
+- [x] **Step 3: Poll health and execute the same fixed workflow once**
 
 ```powershell
 $ready = $false
@@ -402,7 +402,7 @@ Use exactly the Task 3, Step 5 values and complete one workflow without retry.
 
 Expected: all three requests return HTTP 200 and the newer frontend renders the coaching plan correctly without overflow, hidden required information, or `INVALID_MODEL_RESPONSE`.
 
-- [ ] **Step 4: Stop the combined process and check safe diagnostics**
+- [x] **Step 4: Stop the combined process and check safe diagnostics**
 
 ```powershell
 if ($combinedProcess -and -not $combinedProcess.HasExited) {
@@ -415,6 +415,8 @@ Select-String -LiteralPath $stdout, $stderr -Pattern 'MODEL_RESPONSE_REJECTED|IN
 ```
 
 Expected: no listener and no rejection for the successful workflow. If this gate fails after the baseline succeeded, compare frontend request payload construction before modifying backend code.
+
+2026-07-23 execution note: after separate user approval, the combined branch completed the first B-class workflow from `D:\codex-pj\teacher\docs\测试文档.md` once through the browser. `intake`, `classify`, and `plan` each returned HTTP 200; the concise classification summary and all five plan sections rendered; no internal classification details, horizontal overflow, `INVALID_MODEL_RESPONSE`, or safe diagnostic rejection appeared. The only browser console error was an unrelated `favicon.ico` HTTP 404. Port 4186 was stopped after verification, and browser evidence was moved to `%TEMP%\teacher-combined-evidence-20260723-111211`.
 
 ### Task 7: Audit and publish the tested branch
 
