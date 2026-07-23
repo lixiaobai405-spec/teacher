@@ -688,7 +688,7 @@ tail -n 8 |
 awk '{print $4, $5, $6, $7, $9}'
 
 journalctl -u teacher \
-  --since "$restart_at" \
+  --since "15 minutes ago" \
   --no-pager |
 grep -A 15 -B 2 -E \
 'MODEL_RESPONSE_REJECTED|INVALID_MODEL_RESPONSE|MODEL_SERVICE_UNAVAILABLE' || true
